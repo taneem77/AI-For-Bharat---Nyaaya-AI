@@ -480,7 +480,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ### 🎯 Built for Amazon National Hackathon 2026
 
-**Team**: [Your Team Name]  
+**Team**: ByteCoke  
 **Category**: Social Impact + AI Innovation  
 **Submission Date**: February 2026
 
