@@ -4,7 +4,7 @@
 
 ### *Your Rights. Your Voice. Your Language.*
 
-**The first offline-capable, voice-first AI assistant that helps rural Indians discover and claim ₹500M+ in government welfare benefits—without agents, without rejection, without losing dignity.**
+**A proposal for an offline-capable, voice-first AI assistant that helps rural Indians discover and claim government welfare benefits—without agents, without rejection, without losing dignity.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tech: Llama 3](https://img.shields.io/badge/LLM-Llama%203%208B-orange)](https://llama.meta.com/)
@@ -13,111 +13,123 @@
 [![Built with Flutter](https://img.shields.io/badge/Built%20with-Flutter-02569B?logo=flutter)](https://flutter.dev)
 [![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 
- [📖 Documentation](REQUIREMENTS_ENHANCED.MD) • [🏗️ Architecture](DESIGN_ENHANCED.MD) 
+[🚀 Proposed Stack](#-proposed-tech-stack) • [📖 Requirements](REQUIREMENTS_ENHANCED.MD) • [🏗️ Architecture](#-the-intelligence-architecture) • [🗺️ Roadmap](#-roadmap)
 
 </div>
 
 ---
 
+## 📌 Submission Overview
+
+> **Hackathon**: Amazon National Hackathon 2026  
+> **Team**: ByteCoke  
+> **Category**: Social Impact + AI Innovation  
+> **Submission Date**: February 2026  
+> **Stage**: Idea / Proof-of-Concept Proposal
+
+This document outlines our vision, proposed architecture, and implementation plan for **Nyaaya.ai**. The project is in the ideation and early design phase — no production code has been deployed yet.
+
+---
+
 ## 🔥 The Problem: India's ₹1.5 Trillion Welfare Gap
 
-Every year, **₹1.5 trillion** in government welfare benefits go unclaimed. Not because people don't qualify—but because the system is broken.
+Every year, an estimated **₹1.5 trillion** in government welfare benefits go unclaimed. Not because people don't qualify — but because the system is broken.
 
 <table>
 <tr>
-<th>😞 Current Reality (The Pain)</th>
-<th>✨ Nyaaya.ai (The Solution)</th>
+<th>😞 Current Reality</th>
+<th>✨ What Nyaaya.ai Aims to Change</th>
 </tr>
 <tr>
 <td>
 
-**4-5 office visits** (24+ hours travel + waiting)  
-**₹300-500 agent fees** (exploitative middlemen)  
-**78% rejection rate** (incomplete documents)  
-**English-only portals** (excludes 80% of rural users)  
+**4–5 office visits** (24+ hours of travel and waiting)  
+**₹300–500 agent fees** (exploitative middlemen)  
+**~78% rejection rate** (incomplete documentation)  
+**English-only portals** (excludes ~80% of rural users)  
 **Zero guidance** (users don't know what they qualify for)  
 **Dignity loss** (harassment, dismissive treatment)
 
 </td>
 <td>
 
-**1 office visit** (75% reduction)  
+**Target: 1 office visit** (75% reduction)  
 **₹0 agent fees** (direct empowerment)  
-**<20% rejection rate** (pre-verified via OCR)  
+**Target: <20% rejection rate** (pre-verified via OCR)  
 **Voice-first Hindi/Hinglish** (natural conversation)  
-**AI-powered discovery** (finds 3-5 schemes per user)  
-**Dignity preserved** (respectful, autonomous)
+**AI-powered scheme discovery** (find 3–5 schemes per user)  
+**Dignity preserved** (respectful, autonomous experience)
 
 </td>
 </tr>
 </table>
 
 > [!IMPORTANT]
-> **The Dignity Score**: We don't just measure benefits claimed. We measure **office visits avoided**, **travel costs saved**, and **autonomy restored**. Because government schemes are a **RIGHT**, not charity.
+> **The Dignity Score**: We don't just want to measure benefits claimed. We want to measure **office visits avoided**, **travel costs saved**, and **autonomy restored**. Because government schemes are a **right**, not charity.
 
 ---
 
-## 🎯 Key Features
+## 🎯 Proposed Features
 
-### 🎤 **Voice-First Hinglish Interface**
+### 🎤 Voice-First Hinglish Interface
 *"Mera husband 5 saal pehle pass ho gaya, mere paas 2 bacche hain..."*
 
-No forms. No English. Just speak naturally in Hindi/Hinglish, and our on-device AI understands your life situation—extracting eligibility factors (age, income, dependents, location) in real-time.
+No forms. No English. Users speak naturally in Hindi/Hinglish, and our proposed on-device AI would understand their life situation — extracting eligibility factors (age, income, dependents, location) in real-time.
 
-- **On-Device Speech-to-Text**: Vosk Hindi model (50MB, <300ms latency)
+- **On-Device Speech-to-Text**: Vosk Hindi model (~50MB, targeting <300ms latency)
 - **Natural Language Understanding**: Llama 3 8B quantized (4-bit GGUF, runs offline)
-- **Zero Cloud Dependency**: Your voice never leaves your phone
+- **Zero Cloud Dependency**: Voice data never leaves the phone
 
 ---
 
-### 🧠 **The Strategy Optimizer: Not Just Eligibility, But a Plan**
+### 🧠 The Strategy Optimizer
 
-Most apps tell you *what* you qualify for. We tell you **how to win**—with a week-by-week action plan.
+Most existing tools tell you *what* you qualify for. Nyaaya.ai would tell you **how to maximize your benefits** — with a week-by-week action plan.
 
-**Example Strategy**:
+**Example Output**:
 ```
-Week 1-8:   Apply for Widow Pension (₹600/mo, fast approval)
-Week 4-12:  Apply for Child Education Grant (₹5,000, parallel track)
+Week 1–8:   Apply for Widow Pension (₹600/mo, fast approval)
+Week 4–12:  Apply for Child Education Grant (₹5,000, parallel track)
 Week 12+:   Apply for Housing Subsidy (₹50,000, requires BPL card)
 
-Total Year 1 Benefit: ₹62,200
+Estimated Year 1 Benefit: ₹62,200
 ```
 
-**Why This Matters**:
-- **Sequential Dependencies**: BPL card approval increases housing scheme chances by 40%
-- **Document Consolidation**: Aadhaar needed for 3 schemes? We tell you once.
-- **Mutual Exclusivity Detection**: Can't claim Old Age + Widow Pension simultaneously
+**Why this matters**:
+- **Sequential Dependencies**: BPL card approval can increase housing scheme chances by ~40%
+- **Document Consolidation**: Aadhaar needed for 3 schemes? User is told once
+- **Mutual Exclusivity Detection**: Flags conflicts (e.g., Old Age + Widow Pension)
 
 ---
 
-### 🌐 **Community Success Moat: Peer-Verified, Not Theoretical**
+### 🌐 Community Success Network
 
-Government portals show eligibility rules. We show **real success stories** from your district.
+Government portals show eligibility rules. We want to show **real success stories** from the user's own district.
 
-**Personalized Matches**:
-- "Sunita D., Age 42, Pune District: Applied Jan 2024, approved March 2024 (9 weeks)"
-- "Had to resubmit income certificate twice—visit office on Tuesday mornings (less crowded)"
-- **91% approval rate** for widows in Maharashtra (verified by NGO partners)
+**Planned Features**:
+- Peer-verified success stories matched by demographics and location
+- Practical tips ("Visit office on Tuesday mornings — less crowded")
+- Approval rate estimates by scheme and district, verified through NGO partners
 
-**Trust Signals**:
+**Trust Signals we'd surface**:
 - ✓ Verified by NGO partner
 - ✓ Cross-checked with government records
 - ✓ Story updated within last 6 months
 
 ---
 
-### 📱 **100% Offline-Capable: Works on 2G, Works Everywhere**
+### 📱 100% Offline-Capable Design
 
-62% of rural users have <500MB free storage and <1 Mbps connectivity. Cloud-first apps fail. We don't.
+62% of rural users have <500MB free storage and <1 Mbps connectivity. Cloud-first apps fail here. Nyaaya.ai is designed offline-first.
 
-**Offline Features**:
+**Planned Offline Capabilities**:
 - ✅ Full eligibility interview (branching logic, multi-turn clarification)
 - ✅ Scheme comparison & optimization (1,000+ schemes per state)
-- ✅ Success story browsing (5,000+ district stories)
-- ✅ Voice transcription (on-device, no internet)
+- ✅ Success story browsing (district-level, pre-synced)
+- ✅ Voice transcription (on-device via Vosk)
 - ✅ Document OCR verification (Google ML Kit, offline)
 
-**Sync Strategy**: Opportunistic background sync when WiFi detected (never on 2G to save data)
+**Sync Strategy**: Opportunistic background sync when WiFi is detected (never on 2G to preserve user data)
 
 ---
 
@@ -139,20 +151,20 @@ flowchart LR
 ```
 
 > [!TIP]
-> **Why On-Device LLM?** Running Llama 3 locally eliminates 3 critical failure modes:
-> 1. **Network Dependency**: 78% of users have <1 Mbps (cloud calls timeout)
-> 2. **Privacy**: Sensitive data (income, caste, disability) never leaves device
-> 3. **Cost at Scale**: 10M users × 5 queries/month × ₹0.50/query = ₹25M/month cloud cost. On-device = **₹0**.
+> **Why On-Device LLM?** Running Llama 3 locally would eliminate 3 critical failure modes:
+> 1. **Network Dependency**: ~78% of target users have <1 Mbps (cloud calls time out)
+> 2. **Privacy**: Sensitive data (income, caste, disability status) never leaves the device
+> 3. **Cost at Scale**: 10M users × 5 queries/month × ~₹0.50/query = ₹25M/month in cloud costs. On-device = **₹0**.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Proposed Tech Stack
 
 <table>
 <tr>
 <th>Layer</th>
 <th>Technology</th>
-<th>Why This Choice?</th>
+<th>Rationale</th>
 </tr>
 <tr>
 <td><strong>Mobile App</strong></td>
@@ -163,9 +175,9 @@ flowchart LR
 </td>
 <td>
 
-60fps UI on ₹5,000 phones (vs 45fps React Native)  
-120ms cold start (vs 380ms RN)  
-45MB memory footprint (vs 78MB RN)
+60fps UI on ₹5,000 phones (vs ~45fps React Native)  
+~120ms cold start (vs ~380ms RN)  
+~45MB memory footprint (vs ~78MB RN)
 
 </td>
 </tr>
@@ -178,8 +190,8 @@ flowchart LR
 </td>
 <td>
 
-4.5GB model size (fits on 8GB phones)  
-<1.5s inference on MediaTek Helio P22  
+~4.5GB model size (fits on 8GB phones)  
+Targeting <1.5s inference on MediaTek Helio P22  
 Offline-capable, privacy-preserving
 
 </td>
@@ -188,13 +200,13 @@ Offline-capable, privacy-preserving
 <td><strong>Speech-to-Text</strong></td>
 <td>
 
-**Vosk** (Hindi model, 50MB)
+**Vosk** (Hindi model, ~50MB)
 
 </td>
 <td>
 
-On-device, <300ms latency  
-No cloud dependency, zero cost
+On-device, targeting <300ms latency  
+No cloud dependency, zero marginal cost
 
 </td>
 </tr>
@@ -236,9 +248,9 @@ Async I/O for high concurrency
 </td>
 <td>
 
-Flexible schemas (JSONB)  
-Transparent Data Encryption (TDE)  
-Sharded by state/district
+Flexible schemas for evolving scheme data  
+Transparent Data Encryption  
+Plan to shard by state/district
 
 </td>
 </tr>
@@ -251,8 +263,8 @@ Sharded by state/district
 </td>
 <td>
 
-BM25 (keyword) + Vector (semantic)  
-District-specific keywords preserved  
+BM25 (keyword) + vector (semantic) hybrid  
+District-specific keyword preservation  
 Peer story matching
 
 </td>
@@ -266,7 +278,7 @@ Peer story matching
 </td>
 <td>
 
-Frequently accessed schemes  
+Frequently accessed scheme data  
 Session management, rate limiting
 
 </td>
@@ -291,81 +303,60 @@ CDN integration for fast delivery
 
 ## 📊 The Dignity Score: Measuring What Matters
 
-We don't just count app downloads. We measure **human impact**.
+We don't want to just count app downloads. We want to measure **human impact**.
 
 <div align="center">
 
-### 🎯 Target Metrics (Year 1)
+### 🎯 Target Impact Metrics (Year 1)
 
-| Metric | Before Nyaaya.ai | After Nyaaya.ai | Impact |
-|--------|------------------|-----------------|--------|
-| **Office Visits** | 4-5 visits | 1 visit | **75% reduction** |
-| **Travel + Agent Costs** | ₹1,500 per user | ₹0 | **₹1,500 saved** |
-| **Rejection Rate** | 78% (incomplete docs) | <20% (pre-verified) | **58% improvement** |
-| **Schemes Discovered** | 0-1 (portal users) | 3-5 (AI-powered) | **3-5x increase** |
-| **Time to Approval** | 16+ weeks | 8-12 weeks | **50% faster** |
+| Metric | Current State | Nyaaya.ai Target | Expected Impact |
+|--------|---------------|-------------------|-----------------|
+| **Office Visits** | 4–5 visits | 1 visit | **75% reduction** |
+| **Travel + Agent Costs** | ~₹1,500/user | ₹0 | **₹1,500 saved/user** |
+| **Rejection Rate** | ~78% | <20% | **~58pp improvement** |
+| **Schemes Discovered** | 0–1 | 3–5 | **3–5x increase** |
+| **Time to Approval** | 16+ weeks | 8–12 weeks | **~50% faster** |
 | **User Autonomy** | Agent-dependent | Self-sufficient | **Dignity restored** |
 
 </div>
 
 > [!NOTE]
-> **Why "Dignity" Matters**: Rural users (especially women, elderly, disabled) face harassment, long waits, and dismissive treatment at government offices. Nyaaya.ai empowers users with **knowledge**—so they can advocate for themselves. Government schemes are a **RIGHT**, not charity.
+> **Why "Dignity"?** Rural users — especially women, elderly, and disabled citizens — face harassment, long waits, and dismissive treatment at government offices. Nyaaya.ai aims to empower users with **knowledge** so they can advocate for themselves.
 
-**Total Benefits Claimed (Target)**: ₹500M in Year 1 across pilot states (Maharashtra, Rajasthan, UP)
+**Year 1 Goal**: ₹500M in benefits claimed across pilot states (Maharashtra, Rajasthan, UP)
 
 ---
 
-## 🚀 Installation & Setup
+## 🗺️ Roadmap
 
-### Prerequisites
-- **Android Device**: Android 8.0+ (API level 26+), 8GB storage, 2GB RAM
-- **Development**: Flutter 3.16+, Python 3.11+, PostgreSQL 15+, Redis 7+
----
+### Phase 1: MVP (Months 1–6)
+- [ ] Core eligibility interview engine (Hindi)
+- [ ] Scheme comparison & optimizer
+- [ ] Offline functionality (200MB data package)
+- [ ] Pilot in 2–3 states (Maharashtra, Rajasthan, UP)
+- [ ] Seed 1,000 verified peer stories
+- [ ] Android app
 
-## 🗺️ Roadmap: The Future Vision
-
-### Phase 1: MVP (Months 1-6) ✅
-- [x] Eligibility interview engine (Hindi only)
-- [x] Scheme comparison & optimizer
-- [x] Offline functionality (200MB data package)
-- [x] 2-3 pilot states (Maharashtra, Rajasthan, UP)
-- [x] 1,000 verified peer stories
-- [x] Android app only
-
-### Phase 2: Scale (Months 7-12) 🚧
+### Phase 2: Scale (Months 7–12)
 - [ ] Community validation network (peer chat)
-- [ ] 5 additional states (Tamil Nadu, Karnataka, West Bengal, Gujarat, Madhya Pradesh)
+- [ ] Expand to 5 additional states (Tamil Nadu, Karnataka, West Bengal, Gujarat, MP)
 - [ ] 10,000+ peer stories
 - [ ] Performance optimization (target: <1.5s total latency)
 - [ ] Security audit + penetration testing
 
-### Phase 3: Expand (Months 13-18) 🔮
+### Phase 3: Expand (Months 13–18)
 - [ ] Multi-language support (Tamil, Telugu, Kannada, Bengali, Marathi)
 - [ ] All 28 states + 8 union territories
-- [ ] Government API integration (if available)
-- [ ] Agent partnership program (Pro Mode for NGO workers)
+- [ ] Government API integration (where available)
+- [ ] NGO Pro Mode (agent partnership program)
 - [ ] iOS app (Swift, on-device Core ML)
 
-### Phase 4: Scale to 10M Users (Months 19-24) 🚀
-- [ ] Real-time government application submission (API integration)
-- [ ] Video call with government officers (partnership with NIC)
+### Phase 4: Scale to 10M Users (Months 19–24)
+- [ ] Real-time government application submission via API
+- [ ] Video call with government officers (NIC partnership)
 - [ ] Biometric authentication (Aadhaar integration)
-- [ ] In-app payment for agent services (UPI integration)
-- [ ] AI-powered document generation (auto-fill application forms
----
+- [ ] UPI-based in-app payments for optional agent services
+- [ ] AI-powered document generation (auto-fill application forms)
 
-<div align="center">
-
-### 🎯 Built for Amazon National Hackathon 2026
-
-**Team**: ByteCoke  
-**Category**: Social Impact + AI Innovation  
-**Submission Date**: February 2026
-
----
-
-*"Your Rights. Your Voice. Your Language."*
-
-**Nyaaya.ai** - Empowering 500M rural Indians to claim their welfare benefits with dignity.
 
 </div>
