@@ -13,7 +13,7 @@
 [![Built with Flutter](https://img.shields.io/badge/Built%20with-Flutter-02569B?logo=flutter)](https://flutter.dev)
 [![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 
-[🚀 Quick Start](#-installation--setup) • [📖 Documentation](REQUIREMENTS_ENHANCED.MD) • [🏗️ Architecture](DESIGN_ENHANCED.MD) • [🎥 Demo](#) • [🤝 Contributing](#)
+ [📖 Documentation](REQUIREMENTS_ENHANCED.MD) • [🏗️ Architecture](DESIGN_ENHANCED.MD) 
 
 </div>
 
