@@ -13,7 +13,7 @@
 [![Built with Flutter](https://img.shields.io/badge/Built%20with-Flutter-02569B?logo=flutter)](https://flutter.dev)
 [![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 
-[🚀 Proposed Stack](#-proposed-tech-stack) • [📖 Requirements](REQUIREMENTS.MD) • [🏗️ Architecture](DESIGN.MD) • [🗺️ Roadmap](#-roadmap)
+ [📖 Requirements](REQUIREMENTS.MD) • [🏗️ Architecture](DESIGN.MD) 
 
 </div>
 
