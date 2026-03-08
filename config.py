@@ -58,6 +58,34 @@ SCHEME_NREGA = "nrega"
 RATE_LIMIT_RPM: int = 100            # requests per minute per session_id
 
 # ---------------------------------------------------------------------------
+# Feature Flags — control real AWS vs mock usage
+# ---------------------------------------------------------------------------
+
+# DEMO_MODE: when True, forces mock for everything (never tries real AWS).
+# Perfect for prototype videos and demos without AWS credentials.
+DEMO_MODE: bool = os.getenv("DEMO_MODE", "false").lower() == "true"
+
+# Fine-grained control (ignored when DEMO_MODE=true)
+USE_REAL_BEDROCK: bool = os.getenv("USE_REAL_BEDROCK", "false").lower() == "true"
+USE_REAL_DYNAMODB: bool = os.getenv("USE_REAL_DYNAMODB", "false").lower() == "true"
+
+# Automatic mock fallback if real AWS call fails (recommended: true)
+USE_MOCK_FALLBACK: bool = os.getenv("USE_MOCK_FALLBACK", "true").lower() == "true"
+
+# Apply DEMO_MODE overrides
+if DEMO_MODE:
+    USE_REAL_BEDROCK = False
+    USE_REAL_DYNAMODB = False
+    logger.warning("🎬 DEMO MODE ENABLED — Using mock data only (no real AWS calls)")
+else:
+    logger.info(
+        "⚙️  Config | USE_REAL_BEDROCK=%s | USE_REAL_DYNAMODB=%s | USE_MOCK_FALLBACK=%s",
+        USE_REAL_BEDROCK,
+        USE_REAL_DYNAMODB,
+        USE_MOCK_FALLBACK,
+    )
+
+# ---------------------------------------------------------------------------
 # Enums (shared across modules)
 # ---------------------------------------------------------------------------
 

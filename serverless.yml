@@ -1,0 +1,97 @@
+service: nyaaya-api
+
+# ============================================================
+# Nyaaya.ai — Serverless Framework deployment configuration
+# Deploy with: serverless deploy
+# ============================================================
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: us-east-1
+  memorySize: 512
+  timeout: 30
+
+  # IAM permissions granted to the Lambda execution role
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+          Resource:
+            - "arn:aws:bedrock:us-east-1::model/anthropic.claude-3-5-sonnet*"
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - "arn:aws:dynamodb:us-east-1:*:table/nyaaya_interviews"
+
+  # Environment variables injected into every Lambda function
+  environment:
+    ENV: prod
+    AWS_REGION: us-east-1                                  # Note: also set by Lambda automatically
+    USE_REAL_BEDROCK: "true"
+    USE_REAL_DYNAMODB: "true"
+    USE_MOCK_FALLBACK: "true"
+    BEDROCK_MODEL_ID: "anthropic.claude-3-5-sonnet-20241022"
+    DYNAMODB_TABLE_NAME: "nyaaya_interviews"
+    # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are NOT needed here
+    # Lambda uses the IAM execution role above automatically.
+
+functions:
+  api:
+    handler: main.handler        # Mangum wraps the FastAPI app
+    events:
+      # Catch-all proxy — routes every path + method to FastAPI
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+      # Root path
+      - http:
+          path: /
+          method: ANY
+          cors: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux    # cross-compile native deps on non-Linux hosts
+    slim: true                 # strip .dist-info, __pycache__ to reduce package size
+    zip: true                  # zip dependencies to stay within Lambda size limit
+
+# ============================================================
+# DynamoDB table (provisioned alongside the Lambda)
+# ============================================================
+
+resources:
+  Resources:
+    NyaayaInterviewsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: nyaaya_interviews
+        BillingMode: PAY_PER_REQUEST      # auto-scales; no capacity planning needed
+        TableClass: STANDARD
+        AttributeDefinitions:
+          - AttributeName: session_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: session_id
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true                   # auto-delete sessions after 24 h
+        Tags:
+          - Key: Project
+            Value: Nyaaya
+          - Key: Environment
+            Value: prod

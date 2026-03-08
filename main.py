@@ -2,7 +2,7 @@
 main.py — FastAPI application + AWS Lambda handler for Nyaaya.ai
 
 Endpoints:
-  POST /interview  — Hinglish interview, Bedrock-powered
+  POST /interview  — Hinglish interview, Bedrock-powered (with smart mock fallback)
   POST /evaluate   — Direct profile evaluation + strategy
 """
 from __future__ import annotations
@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from mangum import Mangum
 from pydantic import ValidationError
 
+import config
 from bedrock_client import conduct_interview
 from config import (
     SCHEME_DISABILITY_ALLOWANCE,
@@ -63,13 +64,28 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# DynamoDB: use mock locally, real on Lambda
+# DynamoDB: use mock locally/demo, real on Lambda / when flag set
 # ---------------------------------------------------------------------------
 
 def _get_db() -> DynamoDBInterface:
-    """Return the appropriate DB client based on environment."""
-    if os.getenv("AWS_EXECUTION_ENV") or os.getenv("USE_REAL_DYNAMODB"):
+    """
+    Return the appropriate DB client based on environment flags.
+
+    Priority:
+      1. DEMO_MODE=true          → MockDynamoDBClient (never touches AWS)
+      2. AWS_EXECUTION_ENV set   → RealDynamoDBClient (running in Lambda)
+      3. USE_REAL_DYNAMODB=true  → RealDynamoDBClient (explicit override)
+      4. Otherwise               → MockDynamoDBClient (safe local default)
+    """
+    if config.DEMO_MODE:
+        logger.info("🎬 DEMO MODE: Using MockDynamoDBClient")
+        return MockDynamoDBClient()
+
+    if os.getenv("AWS_EXECUTION_ENV") or config.USE_REAL_DYNAMODB:
+        logger.info("⚙️  PRODUCTION: Using RealDynamoDBClient")
         return RealDynamoDBClient()
+
+    logger.info("📝 LOCAL: Using MockDynamoDBClient (set USE_REAL_DYNAMODB=true for real AWS)")
     return MockDynamoDBClient()
 
 
@@ -137,14 +153,32 @@ async def generic_error_handler(request: Request, exc: Exception) -> JSONRespons
 )
 async def interview_endpoint(request: InterviewRequest) -> Any:
     """
-    Multi-turn interview powered by Bedrock.
+    Multi-turn interview powered by Bedrock (with smart mock fallback).
 
-    - Loads existing session from DynamoDB (or creates fresh state)
-    - Calls Claude 3.5 Sonnet with conversation context
+    - Loads existing session from DynamoDB / mock (or creates fresh state)
+    - Calls Claude 3.5 Sonnet or enhanced mock with conversation context
     - Merges extracted data into running profile (partial updates)
-    - Persists state back to DynamoDB
+    - Persists state back to DynamoDB / mock
     - Returns the next question and partial extracted data
+
+    Mode is controlled by DEMO_MODE / USE_REAL_BEDROCK env vars.
+    Never returns 500 — all AWS failures fall back to the smart mock.
     """
+
+    # ── Log which mode we're operating in ───────────────────────────────────
+    if config.DEMO_MODE:
+        logger.info(
+            "🎬 DEMO MODE | session_id=%s | turn_input=%r",
+            request.session_id,
+            request.user_input[:60],
+        )
+    else:
+        logger.info(
+            "⚙️  PRODUCTION MODE | session_id=%s | bedrock=%s | dynamodb=%s",
+            request.session_id,
+            "real" if config.USE_REAL_BEDROCK else "mock",
+            "real" if config.USE_REAL_DYNAMODB else "mock",
+        )
 
     # 1. Load or initialise session
     state = load_interview_state(request.session_id, _db)
@@ -168,12 +202,13 @@ async def interview_endpoint(request: InterviewRequest) -> Any:
             interview_complete=True,
         )
 
-    # 2. Call Bedrock
+    # 2. Call Bedrock (or smart mock — conduct_interview handles this automatically)
     history_dicts = [
         {
             "turn": t.turn,
             "user_input": t.user_input,
             "assistant_response": t.assistant_response,
+            "extracted_so_far": t.extracted_so_far,
         }
         for t in state.conversation_history
     ]
@@ -249,7 +284,10 @@ async def evaluate_endpoint(profile: UserProfile) -> Any:
     3. Strategy       — ranked application timeline
 
     Returns full eligibility results + strategy + summary.
+    Rule engine is pure Python — no AWS dependency, always works.
     """
+    if config.DEMO_MODE:
+        logger.info("🎬 DEMO MODE | /evaluate called")
 
     # Layer 2+3: rule engine (Layer 1 happens automatically via Pydantic)
     all_results = SchemeValidator.evaluate_all(profile)
@@ -280,6 +318,9 @@ async def root() -> dict:
         "service": "Nyaaya.ai Eligibility API",
         "version": "1.0.0",
         "status": "ok",
+        "mode": "DEMO" if config.DEMO_MODE else "PRODUCTION",
+        "bedrock": "mock" if (config.DEMO_MODE or not config.USE_REAL_BEDROCK) else "real",
+        "dynamodb": "mock" if (config.DEMO_MODE or not config.USE_REAL_DYNAMODB) else "real",
         "endpoints": [
             {"method": "POST", "path": "/interview", "description": "Multi-turn Hinglish interview (Bedrock)"},
             {"method": "POST", "path": "/evaluate",  "description": "Direct profile eligibility evaluation"},
@@ -296,7 +337,11 @@ async def root() -> dict:
 
 @app.get("/health", include_in_schema=False)
 async def health() -> dict[str, str]:
-    return {"status": "ok", "version": "1.0.0"}
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "mode": "DEMO" if config.DEMO_MODE else "PRODUCTION",
+    }
 
 
 # ---------------------------------------------------------------------------
