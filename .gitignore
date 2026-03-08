@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+package/
+nyaaya-lambda.zip
+.pytest_cache/
+.mypy_cache/
+node_modules/
+frontend/dist/
+frontend/node_modules/

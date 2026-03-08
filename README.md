@@ -1,362 +1,288 @@
-<div align="center">
+# Nyaaya.ai — Welfare Benefits, Simplified
 
-# 🎯 Nyaaya.ai
+**AI-powered Indian government welfare eligibility engine** that helps citizens discover, qualify for, and apply to welfare schemes through a natural Hinglish conversation.
 
-### *Your Rights. Your Voice. Your Language.*
-
-**A proposal for an offline-capable, voice-first AI assistant that helps rural Indians discover and claim government welfare benefits—without agents, without rejection, without losing dignity.**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tech: Llama 3](https://img.shields.io/badge/LLM-Llama%203%208B-orange)](https://llama.meta.com/)
-[![Platform: Android](https://img.shields.io/badge/Platform-Android%208.0%2B-green)](https://www.android.com/)
-[![Offline: 100%](https://img.shields.io/badge/Offline-100%25-brightgreen)](https://github.com)
-[![Built with Flutter](https://img.shields.io/badge/Built%20with-Flutter-02569B?logo=flutter)](https://flutter.dev)
-[![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-
- [📖 Requirements](REQUIREMENTS.MD) • [🏗️ Architecture](DESIGN.MD) 
-
-</div>
+> Built for the **AWS AI For Bharat Hackathon** — Prototype Phase
 
 ---
 
-## 📌 Submission Overview
+## The Problem
 
-> **Hackathon**: Amazon National Hackathon 2026  
-> **Team**: ByteCoke  
-> **Category**: Social Impact + AI Innovation  
-> **Submission Date**: February 2026  
-> **Stage**: Idea / Proof-of-Concept Proposal
+**350M+ eligible Indians don't claim welfare benefits** because the process is confusing, multilingual, and bureaucratic. Forms are in English, rules are scattered across websites, and there's no one to guide them through.
 
-This document outlines our vision, proposed architecture, and implementation plan for **Nyaaya.ai**. The project is in the ideation and early design phase — no production code has been deployed yet.
+## Our Solution
 
----
+Nyaaya.ai is an end-to-end welfare eligibility platform that:
 
-## 🔥 The Problem: India's ₹1.5 Trillion Welfare Gap
-
-Every year, an estimated **₹1.5 trillion** in government welfare benefits go unclaimed. Not because people don't qualify — but because the system is broken.
-
-<table>
-<tr>
-<th>😞 Current Reality</th>
-<th>✨ What Nyaaya.ai Aims to Change</th>
-</tr>
-<tr>
-<td>
-
-**4–5 office visits** (24+ hours of travel and waiting)  
-**₹300–500 agent fees** (exploitative middlemen)  
-**~78% rejection rate** (incomplete documentation)  
-**English-only portals** (excludes ~80% of rural users)  
-**Zero guidance** (users don't know what they qualify for)  
-**Dignity loss** (harassment, dismissive treatment)
-
-</td>
-<td>
-
-**Target: 1 office visit** (75% reduction)  
-**₹0 agent fees** (direct empowerment)  
-**Target: <20% rejection rate** (pre-verified via OCR)  
-**Voice-first Hindi/Hinglish** (natural conversation)  
-**AI-powered scheme discovery** (find 3–5 schemes per user)  
-**Dignity preserved** (respectful, autonomous experience)
-
-</td>
-</tr>
-</table>
-
-> [!IMPORTANT]
-> **The Dignity Score**: We don't just want to measure benefits claimed. We want to measure **office visits avoided**, **travel costs saved**, and **autonomy restored**. Because government schemes are a **right**, not charity.
+1. **Interviews** users in natural Hinglish (Hindi + English) via an empathetic AI assistant
+2. **Extracts** structured eligibility data from conversational input
+3. **Evaluates** against 6 welfare schemes using a deterministic rule engine
+4. **Computes a Nyaaya Score** (0-100) — a novel "welfare accessibility index"
+5. **Generates an optimised application strategy** with week-by-week timelines
+6. **Creates personalised peer stories** so users learn from real-world experiences
 
 ---
 
-## 🎯 Proposed Features
+## Architecture
 
-### 🎤 Voice-First Hinglish Interface
-*"Mera husband 5 saal pehle pass ho gaya, mere paas 2 bacche hain..."*
-
-No forms. No English. Users speak naturally in Hindi/Hinglish, and our proposed on-device AI would understand their life situation — extracting eligibility factors (age, income, dependents, location) in real-time.
-
-- **On-Device Speech-to-Text**: Vosk Hindi model (~50MB, targeting <300ms latency)
-- **Natural Language Understanding**: Llama 3 8B quantized (4-bit GGUF, runs offline)
-- **Zero Cloud Dependency**: Voice data never leaves the phone
-
----
-
-### 🧠 The Strategy Optimizer
-
-Most existing tools tell you *what* you qualify for. Nyaaya.ai would tell you **how to maximize your benefits** — with a week-by-week action plan.
-
-**Example Output**:
 ```
-Week 1–8:   Apply for Widow Pension (₹600/mo, fast approval)
-Week 4–12:  Apply for Child Education Grant (₹5,000, parallel track)
-Week 12+:   Apply for Housing Subsidy (₹50,000, requires BPL card)
-
-Estimated Year 1 Benefit: ₹62,200
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│  React SPA  │────▶│  FastAPI + Lambda │────▶│  Amazon Bedrock     │
+│  (Vite)     │     │  (Mangum)        │     │  (Claude Sonnet 4.5)│
+└─────────────┘     └──────┬───────────┘     └─────────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────────┐
+        │ DynamoDB  │ │ Amazon   │ │ Amazon       │
+        │ Sessions  │ │Translate │ │ Comprehend   │
+        └──────────┘ └──────────┘ └──────────────┘
 ```
 
-**Why this matters**:
-- **Sequential Dependencies**: BPL card approval can increase housing scheme chances by ~40%
-- **Document Consolidation**: Aadhaar needed for 3 schemes? User is told once
-- **Mutual Exclusivity Detection**: Flags conflicts (e.g., Old Age + Widow Pension)
+### AWS Services Used
+
+| Service | Purpose |
+|---------|---------|
+| **Amazon Bedrock** (Claude Sonnet 4.5) | Hinglish interview, data extraction, story generation |
+| **DynamoDB** | Session persistence with TTL auto-expiry |
+| **Lambda** (via Mangum) | Serverless API hosting |
+| **API Gateway** | REST endpoint routing |
+| **Amazon Translate** | Real-time Hindi/English/Marathi translation |
+| **Amazon Comprehend** | Language detection |
+| **S3 + CloudFront** | Frontend static hosting |
 
 ---
 
-### 🌐 Community Success Network
+## Welfare Schemes Covered (6)
 
-Government portals show eligibility rules. We want to show **real success stories** from the user's own district.
-
-**Planned Features**:
-- Peer-verified success stories matched by demographics and location
-- Practical tips ("Visit office on Tuesday mornings — less crowded")
-- Approval rate estimates by scheme and district, verified through NGO partners
-
-**Trust Signals we'd surface**:
-- ✓ Verified by NGO partner
-- ✓ Cross-checked with government records
-- ✓ Story updated within last 6 months
+| Scheme | Benefit | Target |
+|--------|---------|--------|
+| Widow Pension (Maharashtra) | ₹600/month | Widows, income <₹15K |
+| Disability Allowance | ₹500/month | ≥40% disability, income <₹10K |
+| NREGA Employment Guarantee | ₹20,000/year | Rural, 18-65, income <₹20K |
+| PM-KISAN Samman Nidhi | ₹500/month | Farmers, rural, income <₹2L |
+| Indira Gandhi Old Age Pension | ₹500/month | Age ≥60, BPL |
+| PM Ujjwala Yojana (Free LPG) | ₹1,600 one-time | Women, BPL |
 
 ---
 
-### 📱 100% Offline-Capable Design
+## Innovation Highlights
 
-62% of rural users have <500MB free storage and <1 Mbps connectivity. Cloud-first apps fail here. Nyaaya.ai is designed offline-first.
+### Nyaaya Score (0-100)
+A composite "welfare accessibility index" that quantifies how well-served a citizen is:
+- **Coverage** (40%): % of schemes qualified for
+- **Benefit** (30%): annual benefit vs ₹72K baseline income
+- **Speed** (15%): inverse of average processing time
+- **Confidence** (15%): average match confidence
 
-**Planned Offline Capabilities**:
-- ✅ Full eligibility interview (branching logic, multi-turn clarification)
-- ✅ Scheme comparison & optimization (1,000+ schemes per state)
-- ✅ Success story browsing (district-level, pre-synced)
-- ✅ Voice transcription (on-device via Vosk)
-- ✅ Document OCR verification (Google ML Kit, offline)
+Grades: A (80+), B (60+), C (40+), D (20+), F (<20)
 
-**Sync Strategy**: Opportunistic background sync when WiFi is detected (never on 2G to preserve user data)
+### Bedrock-Powered Peer Stories
+Instead of static FAQs, Nyaaya generates **personalised peer success stories** based on the user's state, district, and eligible schemes — complete with real-world blockers and practical tips.
+
+### Hinglish-Native Interview
+The AI naturally handles code-mixing (Hindi + English) and extracts structured data without forms. Voice input supported via Web Speech API.
+
+### 3-Layer Validation Pipeline
+1. **Pydantic** — type, range, cross-field validation
+2. **Rule engine** — deterministic per-scheme eligibility (pure functions, zero side effects)
+3. **Strategy optimizer** — ranked application timeline with phase-based scheduling
 
 ---
 
-## 🏗️ The Intelligence Architecture
+## Quick Start
 
-```mermaid
-flowchart LR
-    A[👤 User Voice<br/>Hindi/Hinglish] --> B[🎙️ On-Device STT<br/>Vosk 50MB<br/><300ms]
-    B --> C[🤖 Local LLM<br/>Llama 3 8B<br/>Quantized 4-bit<br/><1.5s]
-    C --> D[✅ Pydantic Validator<br/>Structured Output]
-    D --> E[🛡️ Rule Engine<br/>Hardcoded Gov Rules<br/>Hallucination Guard]
-    E --> F[📊 Eligibility JSON<br/>Confidence Score<br/>Explainable AI]
-    F --> G[🔒 Local SQLite<br/>AES-256 Encrypted]
-    
-    style A fill:#e1f5ff
-    style C fill:#fff4e1
-    style E fill:#ffe1e1
-    style G fill:#e1ffe1
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- AWS account with Bedrock access (Claude Sonnet 4.5)
+
+### Backend
+
+```bash
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+# API docs at http://localhost:8000/docs
+# Uses mock DynamoDB locally — no AWS needed for basic testing
 ```
 
-> [!TIP]
-> **Why On-Device LLM?** Running Llama 3 locally would eliminate 3 critical failure modes:
-> 1. **Network Dependency**: ~78% of target users have <1 Mbps (cloud calls time out)
-> 2. **Privacy**: Sensitive data (income, caste, disability status) never leaves the device
-> 3. **Cost at Scale**: 10M users × 5 queries/month × ~₹0.50/query = ₹25M/month in cloud costs. On-device = **₹0**.
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+# Opens at http://localhost:5173
+```
+
+### Environment Variables
+
+```bash
+# Backend
+AWS_REGION=ap-south-1
+BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-5-20250514
+DYNAMODB_TABLE_NAME=nyaaya_interviews
+USE_REAL_DYNAMODB=true  # only when using real AWS
+
+# Frontend (.env)
+VITE_API_URL=http://localhost:8000
+```
 
 ---
 
-## 🛠️ Proposed Tech Stack
+## AWS Setup Guide
 
-<table>
-<tr>
-<th>Layer</th>
-<th>Technology</th>
-<th>Rationale</th>
-</tr>
-<tr>
-<td><strong>Mobile App</strong></td>
-<td>
+### 1. Enable Bedrock Model Access
 
-**Flutter** (Dart, AOT compilation)
+Go to **Amazon Bedrock → Model access → Manage model access** in `ap-south-1`.
+Request access to **Anthropic Claude Sonnet 4.5**. Approval is usually instant.
 
-</td>
-<td>
+```bash
+aws bedrock list-foundation-models --region ap-south-1 \
+  --query "modelSummaries[?modelId=='anthropic.claude-sonnet-4-5-20250514'].modelId"
+```
 
-60fps UI on ₹5,000 phones (vs ~45fps React Native)  
-~120ms cold start (vs ~380ms RN)  
-~45MB memory footprint (vs ~78MB RN)
+### 2. Create DynamoDB Table
 
-</td>
-</tr>
-<tr>
-<td><strong>LLM Inference</strong></td>
-<td>
+```bash
+aws dynamodb create-table \
+  --table-name nyaaya_interviews \
+  --attribute-definitions AttributeName=session_id,AttributeType=S \
+  --key-schema AttributeName=session_id,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region ap-south-1
 
-**Llama 3 8B** (4-bit GGUF quantized)
+aws dynamodb update-time-to-live \
+  --table-name nyaaya_interviews \
+  --time-to-live-specification "Enabled=true, AttributeName=ttl" \
+  --region ap-south-1
+```
 
-</td>
-<td>
+### 3. Create IAM Role for Lambda
 
-~4.5GB model size (fits on 8GB phones)  
-Targeting <1.5s inference on MediaTek Helio P22  
-Offline-capable, privacy-preserving
+```bash
+aws iam create-role \
+  --role-name nyaaya-lambda-role \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": {"Service": "lambda.amazonaws.com"},
+      "Action": "sts:AssumeRole"
+    }]
+  }'
 
-</td>
-</tr>
-<tr>
-<td><strong>Speech-to-Text</strong></td>
-<td>
+aws iam attach-role-policy --role-name nyaaya-lambda-role \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-**Vosk** (Hindi model, ~50MB)
+aws iam put-role-policy --role-name nyaaya-lambda-role \
+  --policy-name nyaaya-services \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["bedrock:InvokeModel"],
+        "Resource": "arn:aws:bedrock:ap-south-1::foundation-model/anthropic.claude-sonnet-4-5-20250514"
+      },
+      {
+        "Effect": "Allow",
+        "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
+        "Resource": "arn:aws:dynamodb:ap-south-1:*:table/nyaaya_interviews"
+      },
+      {
+        "Effect": "Allow",
+        "Action": ["translate:TranslateText", "comprehend:DetectDominantLanguage"],
+        "Resource": "*"
+      }
+    ]
+  }'
+```
 
-</td>
-<td>
+### 4. Deploy Lambda
 
-On-device, targeting <300ms latency  
-No cloud dependency, zero marginal cost
+```bash
+pip install -r requirements.txt -t package/
+cp *.py package/
+cd package && zip -r ../nyaaya-lambda.zip . && cd ..
 
-</td>
-</tr>
-<tr>
-<td><strong>Local Database</strong></td>
-<td>
+aws lambda create-function \
+  --function-name nyaaya-api \
+  --runtime python3.11 \
+  --handler main.handler \
+  --role arn:aws:iam::<ACCOUNT_ID>:role/nyaaya-lambda-role \
+  --zip-file fileb://nyaaya-lambda.zip \
+  --timeout 30 \
+  --memory-size 512 \
+  --environment Variables="{AWS_REGION=ap-south-1,DYNAMODB_TABLE_NAME=nyaaya_interviews,USE_REAL_DYNAMODB=true}" \
+  --region ap-south-1
+```
 
-**SQLite + SQLCipher** (AES-256)
+### 5. API Gateway
 
-</td>
-<td>
+Create an **HTTP API** in API Gateway with Lambda integration.
+Enable CORS (all origins for prototype). Note the invoke URL.
 
-FTS5 full-text search  
-Encrypted at rest, DPDP Act compliant
+### 6. Deploy Frontend
 
-</td>
-</tr>
-<tr>
-<td><strong>Backend API</strong></td>
-<td>
+```bash
+cd frontend
+VITE_API_URL=https://<api-gateway-url> npm run build
+aws s3 mb s3://nyaaya-frontend --region ap-south-1
+aws s3 sync dist/ s3://nyaaya-frontend --delete
+```
 
-**FastAPI** (Python, async I/O)
-
-</td>
-<td>
-
-Auto-generated OpenAPI docs  
-Type hints, Pydantic validation  
-Async I/O for high concurrency
-
-</td>
-</tr>
-<tr>
-<td><strong>Database</strong></td>
-<td>
-
-**PostgreSQL 15** (JSONB, TDE)
-
-</td>
-<td>
-
-Flexible schemas for evolving scheme data  
-Transparent Data Encryption  
-Plan to shard by state/district
-
-</td>
-</tr>
-<tr>
-<td><strong>Search Engine</strong></td>
-<td>
-
-**Elasticsearch 8** (Hybrid Search)
-
-</td>
-<td>
-
-BM25 (keyword) + vector (semantic) hybrid  
-District-specific keyword preservation  
-Peer story matching
-
-</td>
-</tr>
-<tr>
-<td><strong>Cache</strong></td>
-<td>
-
-**Redis 7** (in-memory)
-
-</td>
-<td>
-
-Frequently accessed scheme data  
-Session management, rate limiting
-
-</td>
-</tr>
-<tr>
-<td><strong>Storage</strong></td>
-<td>
-
-**AWS S3** (object storage)
-
-</td>
-<td>
-
-Peer story images, scheme PDFs  
-CDN integration for fast delivery
-
-</td>
-</tr>
-</table>
+Create a CloudFront distribution pointing to the S3 bucket.
+Add error response: 404 → `/index.html` (SPA routing).
 
 ---
 
-## 📊 The Dignity Score: Measuring What Matters
+## API Endpoints
 
-We don't want to just count app downloads. We want to measure **human impact**.
-
-<div align="center">
-
-### 🎯 Target Impact Metrics (Year 1)
-
-| Metric | Current State | Nyaaya.ai Target | Expected Impact |
-|--------|---------------|-------------------|-----------------|
-| **Office Visits** | 4–5 visits | 1 visit | **75% reduction** |
-| **Travel + Agent Costs** | ~₹1,500/user | ₹0 | **₹1,500 saved/user** |
-| **Rejection Rate** | ~78% | <20% | **~58pp improvement** |
-| **Schemes Discovered** | 0–1 | 3–5 | **3–5x increase** |
-| **Time to Approval** | 16+ weeks | 8–12 weeks | **~50% faster** |
-| **User Autonomy** | Agent-dependent | Self-sufficient | **Dignity restored** |
-
-</div>
-
-> [!NOTE]
-> **Why "Dignity"?** Rural users — especially women, elderly, and disabled citizens — face harassment, long waits, and dismissive treatment at government offices. Nyaaya.ai aims to empower users with **knowledge** so they can advocate for themselves.
-
-**Year 1 Goal**: ₹500M in benefits claimed across pilot states (Maharashtra, Rajasthan, UP)
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/interview` | Multi-turn Hinglish interview (Bedrock) |
+| `POST` | `/evaluate` | Evaluate eligibility + strategy + Nyaaya Score |
+| `POST` | `/translate` | Translate text (Amazon Translate) |
+| `POST` | `/stories` | Generate personalised peer stories (Bedrock) |
+| `GET` | `/health` | Health check |
+| `GET` | `/docs` | Swagger UI |
 
 ---
 
-## 🗺️ Roadmap
+## Project Structure
 
-### Phase 1: MVP (Months 1–6)
-- [ ] Core eligibility interview engine (Hindi)
-- [ ] Scheme comparison & optimizer
-- [ ] Offline functionality (200MB data package)
-- [ ] Pilot in 2–3 states (Maharashtra, Rajasthan, UP)
-- [ ] Seed 1,000 verified peer stories
-- [ ] Android app
+```
+├── main.py               # FastAPI app + Lambda handler (6 endpoints)
+├── bedrock_client.py     # Amazon Bedrock interview + story generation
+├── rule_engine.py        # Deterministic eligibility rules (6 schemes)
+├── optimizer.py          # Strategy optimizer + Nyaaya Score computation
+├── models.py             # Pydantic v2 schemas
+├── config.py             # AWS config + constants + enums
+├── dynamodb_utils.py     # DynamoDB session persistence (mock + real)
+├── translate_client.py   # Amazon Translate + Comprehend integration
+├── requirements.txt
+├── tests/
+│   ├── test_rule_engine.py
+│   ├── test_bedrock_integration.py
+│   └── test_api_endpoints.py
+└── frontend/
+    ├── src/
+    │   ├── pages/        # Welcome, Interview, Results, Strategy, Stories
+    │   ├── components/   # NyaayaScore, ChatBubble, VoiceButton, LanguageToggle
+    │   └── api/client.js # API client
+    ├── index.html
+    └── package.json
+```
 
-### Phase 2: Scale (Months 7–12)
-- [ ] Community validation network (peer chat)
-- [ ] Expand to 5 additional states (Tamil Nadu, Karnataka, West Bengal, Gujarat, MP)
-- [ ] 10,000+ peer stories
-- [ ] Performance optimization (target: <1.5s total latency)
-- [ ] Security audit + penetration testing
+---
 
-### Phase 3: Expand (Months 13–18)
-- [ ] Multi-language support (Tamil, Telugu, Kannada, Bengali, Marathi)
-- [ ] All 28 states + 8 union territories
-- [ ] Government API integration (where available)
-- [ ] NGO Pro Mode (agent partnership program)
-- [ ] iOS app (Swift, on-device Core ML)
+## Running Tests
 
-### Phase 4: Scale to 10M Users (Months 19–24)
-- [ ] Real-time government application submission via API
-- [ ] Video call with government officers (NIC partnership)
-- [ ] Biometric authentication (Aadhaar integration)
-- [ ] UPI-based in-app payments for optional agent services
-- [ ] AI-powered document generation (auto-fill application forms)
+```bash
+pytest tests/ -v
+```
 
+---
 
-</div>
+Built with care for Bharat.

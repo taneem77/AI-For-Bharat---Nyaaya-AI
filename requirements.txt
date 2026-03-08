@@ -1,0 +1,11 @@
+# Runtime dependencies
+fastapi==0.115.5
+mangum==0.19.0
+pydantic>=2.11.5
+boto3==1.35.70
+botocore==1.35.70
+
+# Dev / test dependencies
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.0                  # required by TestClient (asyncio-based)
