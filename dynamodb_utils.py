@@ -2,7 +2,7 @@
 dynamodb_utils.py — DynamoDB operations for Nyaaya interview session persistence.
 
 Provides:
-- MockDynamoDBClient (in-memory, for local/testing use)
+- MockDynamoDBClient (in-memory, persistent, TTL-aware — for local/demo/testing)
 - RealDynamoDBClient (boto3, production)
 - save_interview_state / load_interview_state (unified interface)
 """
@@ -15,8 +15,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 import boto3
-from boto3.dynamodb.conditions import Key
 
+import config
 from config import (
     AWS_REGION,
     DYNAMODB_TABLE_NAME,
@@ -43,32 +43,68 @@ class DynamoDBInterface(ABC):
 # ---------------------------------------------------------------------------
 
 class MockDynamoDBClient(DynamoDBInterface):
-    """Thread-safe in-memory DynamoDB mock for testing and local dev."""
+    """
+    Thread-safe in-memory DynamoDB mock for testing, local dev, and Demo Mode.
+
+    Features:
+    - Full session persistence across multiple calls (in-process lifetime).
+    - TTL enforcement: sessions auto-expire after SESSION_TTL_SECONDS.
+    - Demo-Mode aware logging (prefixes logs with 🎬 when DEMO_MODE=true).
+    - Concurrent-session safe (dict operations are GIL-protected in CPython).
+    """
 
     def __init__(self) -> None:
         self._store: dict[str, dict[str, Any]] = {}
+        self._prefix = "🎬 Mock DynamoDB" if config.DEMO_MODE else "💾 Mock DynamoDB"
 
     def put_item(self, item: dict[str, Any]) -> None:
         sid = item["session_id"]
         self._store[sid] = item
-        logger.debug("MockDB PUT: session_id=%s", sid)
+        logger.info(
+            "%s PUT: session_id=%s | turn_count=%s | complete=%s",
+            self._prefix,
+            sid,
+            item.get("turn_count", "?"),
+            item.get("interview_complete", False),
+        )
 
     def get_item(self, session_id: str) -> dict[str, Any] | None:
         item = self._store.get(session_id)
         if item is None:
-            logger.debug("MockDB GET miss: session_id=%s", session_id)
+            logger.info("%s GET miss: session_id=%s (new session)", self._prefix, session_id)
             return None
         # Honour TTL
-        if item.get("ttl", 0) < int(time.time()):
+        ttl = item.get("ttl", 0)
+        if int(time.time()) > ttl:
             del self._store[session_id]
-            logger.debug("MockDB TTL expired: session_id=%s", session_id)
+            logger.info(
+                "%s TTL expired: session_id=%s (expired at %s)",
+                self._prefix,
+                session_id,
+                datetime.fromtimestamp(ttl, tz=timezone.utc).isoformat(),
+            )
             return None
-        logger.debug("MockDB GET hit: session_id=%s", session_id)
+        # TTL remaining
+        ttl_remaining = ttl - int(time.time())
+        logger.info(
+            "%s GET hit: session_id=%s | turn_count=%s | ttl_remaining=%ds",
+            self._prefix,
+            session_id,
+            item.get("turn_count", "?"),
+            ttl_remaining,
+        )
         return item
 
     def clear(self) -> None:
         """Test utility — wipe all state."""
         self._store.clear()
+        logger.debug("%s: store cleared", self._prefix)
+
+    @property
+    def session_count(self) -> int:
+        """Return number of active sessions (useful for health checks / tests)."""
+        now = int(time.time())
+        return sum(1 for v in self._store.values() if v.get("ttl", 0) > now)
 
 
 # ---------------------------------------------------------------------------
@@ -88,13 +124,15 @@ class RealDynamoDBClient(DynamoDBInterface):
 
     def put_item(self, item: dict[str, Any]) -> None:
         self._table.put_item(Item=item)
-        logger.info("DynamoDB PUT: session_id=%s", item.get("session_id"))
+        logger.info("✅ Real DynamoDB PUT: session_id=%s", item.get("session_id"))
 
     def get_item(self, session_id: str) -> dict[str, Any] | None:
         response = self._table.get_item(Key={"session_id": session_id})
         item = response.get("Item")
         if item is None:
-            logger.info("DynamoDB GET miss: session_id=%s", session_id)
+            logger.info("Real DynamoDB GET miss: session_id=%s", session_id)
+        else:
+            logger.info("✅ Real DynamoDB GET hit: session_id=%s", session_id)
         return item
 
 

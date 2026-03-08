@@ -79,7 +79,12 @@ def _make_bedrock_response(payload: dict) -> MagicMock:
 
 @pytest.fixture()
 def mock_bedrock_client():
-    with patch("bedrock_client._get_bedrock_client") as mock_factory:
+    """Patches _get_bedrock_client AND forces USE_REAL_BEDROCK=True so that
+    conduct_interview takes the real-Bedrock code path (not enhanced mock)."""
+    import bedrock_client as bc
+    with patch("bedrock_client._get_bedrock_client") as mock_factory, \
+         patch.object(bc.config, "USE_REAL_BEDROCK", True), \
+         patch.object(bc.config, "DEMO_MODE", False):
         client = MagicMock()
         mock_factory.return_value = client
         yield client
@@ -162,15 +167,21 @@ class TestConductInterview:
 
     def test_bedrock_client_error_returns_fallback(self, mock_bedrock_client):
         from botocore.exceptions import ClientError
+        import bedrock_client as bc
         mock_bedrock_client.invoke_model.side_effect = ClientError(
             {"Error": {"Code": "ThrottlingException", "Message": "rate limit"}},
             "InvokeModel",
         )
-        result = conduct_interview("Any input", [])
+        # When USE_MOCK_FALLBACK=True (default), error falls through to enhanced mock
+        # so result will be a valid mock response (no 'error' key but no 500 either).
+        # When USE_MOCK_FALLBACK=False, 'error' key appears.
+        with patch.object(bc.config, "USE_MOCK_FALLBACK", False):
+            result = conduct_interview("Any input", [])
         assert result["interview_complete"] is False
         assert "error" in result
 
     def test_unparseable_response_returns_fallback(self, mock_bedrock_client):
+        import bedrock_client as bc
         body_bytes = json.dumps({
             "content": [{"text": "Sorry, I cannot help with that."}]
         }).encode()
@@ -180,7 +191,9 @@ class TestConductInterview:
         mock_resp.__getitem__ = lambda self, k: mock_body if k == "body" else None
         mock_bedrock_client.invoke_model.return_value = mock_resp
 
-        result = conduct_interview("Kuch bhi", [])
+        # With USE_MOCK_FALLBACK=False the last-resort error dict is returned.
+        with patch.object(bc.config, "USE_MOCK_FALLBACK", False):
+            result = conduct_interview("Kuch bhi", [])
         assert result["interview_complete"] is False
         assert "error" in result
 
