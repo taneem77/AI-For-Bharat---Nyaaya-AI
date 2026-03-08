@@ -177,4 +177,89 @@ def build_summary(
         "documents_to_obtain": all_docs,
         "estimated_total_timeline_weeks": max_timeline,
         "schemes_count": len(eligible_only),
+        "nyaaya_score": compute_nyaaya_score(eligible_results, strategy),
     }
+
+
+# ---------------------------------------------------------------------------
+# Nyaaya Score — a 0-100 "welfare accessibility" index
+# ---------------------------------------------------------------------------
+
+def compute_nyaaya_score(
+    all_results: list[EligibilityResult],
+    strategy: list[StrategyStep],
+) -> dict:
+    """
+    Compute a composite Nyaaya Score (0-100) that quantifies
+    how well-served the user is by available welfare schemes.
+
+    Components:
+    - Coverage (40%):  % of schemes the user qualifies for
+    - Benefit (30%):   total annual benefit as % of a ₹72,000 baseline
+    - Speed (15%):     inverse of avg processing time
+    - Confidence (15%): avg confidence across eligible schemes
+    """
+    eligible = [r for r in all_results if r.eligible]
+    total = len(all_results) if all_results else 1
+
+    # Coverage: what % of available schemes they qualify for
+    coverage = (len(eligible) / total) * 100
+
+    # Benefit: annual benefit as % of ₹72,000 baseline (avg rural family income)
+    annual = sum((r.benefit_monthly * 12) + r.benefit_onetime for r in eligible)
+    benefit = min((annual / 72_000) * 100, 100)
+
+    # Speed: inverse of average processing time (faster = higher score)
+    if eligible:
+        avg_weeks = sum(r.processing_weeks for r in eligible) / len(eligible)
+        speed = max(100 - (avg_weeks * 5), 0)  # 20 weeks = 0, 0 weeks = 100
+    else:
+        speed = 0
+
+    # Confidence: average confidence of eligible schemes
+    confidence = (sum(r.confidence for r in eligible) / len(eligible) * 100) if eligible else 0
+
+    # Weighted composite
+    score = round(
+        coverage * 0.40
+        + benefit * 0.30
+        + speed * 0.15
+        + confidence * 0.15,
+        1,
+    )
+
+    return {
+        "score": min(score, 100),
+        "grade": _score_grade(score),
+        "breakdown": {
+            "coverage": round(coverage, 1),
+            "benefit": round(benefit, 1),
+            "speed": round(speed, 1),
+            "confidence": round(confidence, 1),
+        },
+        "interpretation": _score_interpretation(score),
+    }
+
+
+def _score_grade(score: float) -> str:
+    if score >= 80:
+        return "A"
+    elif score >= 60:
+        return "B"
+    elif score >= 40:
+        return "C"
+    elif score >= 20:
+        return "D"
+    return "F"
+
+
+def _score_interpretation(score: float) -> str:
+    if score >= 80:
+        return "Excellent coverage! You qualify for multiple schemes with strong benefits."
+    elif score >= 60:
+        return "Good coverage. You have meaningful welfare support available."
+    elif score >= 40:
+        return "Moderate coverage. Some schemes apply, but gaps exist."
+    elif score >= 20:
+        return "Limited coverage. Few schemes match your profile currently."
+    return "Very limited options. Consider checking if your profile details are complete."

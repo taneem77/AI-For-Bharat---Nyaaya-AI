@@ -16,13 +16,14 @@ from fastapi.responses import JSONResponse
 from mangum import Mangum
 from pydantic import ValidationError
 
-from bedrock_client import conduct_interview
+from bedrock_client import conduct_interview, generate_stories
 from config import (
     SCHEME_DISABILITY_ALLOWANCE,
     SCHEME_NREGA,
     SCHEME_WIDOW_PENSION,
     logger,
 )
+from translate_client import translate_text
 from dynamodb_utils import (
     DynamoDBInterface,
     MockDynamoDBClient,
@@ -36,6 +37,9 @@ from models import (
     InterviewRequest,
     InterviewResponse,
     InterviewState,
+    StoriesRequest,
+    TranslateRequest,
+    TranslateResponse,
     UserProfile,
 )
 from optimizer import build_summary, generate_strategy
@@ -168,7 +172,7 @@ async def interview_endpoint(request: InterviewRequest) -> Any:
             interview_complete=True,
         )
 
-    # 2. Call Bedrock
+    # 2. Call Bedrock — pass accumulated data so the model knows what's collected
     history_dicts = [
         {
             "turn": t.turn,
@@ -177,7 +181,14 @@ async def interview_endpoint(request: InterviewRequest) -> Any:
         }
         for t in state.conversation_history
     ]
-    bedrock_result = conduct_interview(request.user_input, history_dicts)
+    # Build accumulated data from last turn or profile
+    accumulated: dict[str, Any] = {}
+    if state.extracted_profile:
+        accumulated = state.extracted_profile.model_dump(mode="json")
+    elif state.conversation_history:
+        accumulated = dict(state.conversation_history[-1].extracted_so_far)
+
+    bedrock_result = conduct_interview(request.user_input, history_dicts, accumulated)
 
     next_question: str = bedrock_result.get(
         "next_question", "Kya aap thoda aur detail de sakte hain?"
@@ -268,6 +279,52 @@ async def evaluate_endpoint(profile: UserProfile) -> Any:
         strategy=strategy,
         summary=summary,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /translate
+# ---------------------------------------------------------------------------
+
+@app.post(
+    "/translate",
+    response_model=TranslateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Translate text between languages using Amazon Translate",
+)
+async def translate_endpoint(request: TranslateRequest) -> Any:
+    """Real-time translation powered by Amazon Translate."""
+    result = translate_text(
+        text=request.text,
+        source_lang=request.source_lang,
+        target_lang=request.target_lang,
+    )
+    return TranslateResponse(
+        translated_text=result["translated_text"],
+        source_language=result["source_language"],
+        target_language=result["target_language"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /stories — Bedrock-generated contextual peer stories
+# ---------------------------------------------------------------------------
+
+@app.post(
+    "/stories",
+    status_code=status.HTTP_200_OK,
+    summary="Generate contextual peer success stories using Bedrock",
+)
+async def stories_endpoint(request: StoriesRequest) -> Any:
+    """
+    Generate realistic, anonymised peer stories based on user's
+    state, district, and eligible schemes. Powered by Bedrock.
+    """
+    stories = generate_stories(
+        state=request.state,
+        district=request.district,
+        scheme_ids=request.scheme_ids,
+    )
+    return {"status": "success", "stories": stories}
 
 
 # ---------------------------------------------------------------------------

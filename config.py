@@ -4,6 +4,16 @@ config.py — AWS configuration, constants, and environment settings for Nyaaya.
 import os
 import logging
 from enum import Enum
+from pathlib import Path
+
+# Load .env file if present (local development)
+_env_path = Path(__file__).resolve().parent / ".env"
+if _env_path.exists():
+    for line in _env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -19,14 +29,14 @@ logger = logging.getLogger("nyaaya")
 # ---------------------------------------------------------------------------
 AWS_REGION: str = os.getenv("AWS_REGION", "ap-south-1")
 BEDROCK_MODEL_ID: str = os.getenv(
-    "BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022"
+    "BEDROCK_MODEL_ID", "apac.amazon.nova-pro-v1:0"
 )
 DYNAMODB_TABLE_NAME: str = os.getenv("DYNAMODB_TABLE_NAME", "nyaaya_interviews")
 
 # ---------------------------------------------------------------------------
 # Application constants
 # ---------------------------------------------------------------------------
-MAX_INTERVIEW_TURNS: int = 15
+MAX_INTERVIEW_TURNS: int = 10
 CONTEXT_WINDOW_TURNS: int = 5          # last N turns sent to Bedrock
 SESSION_TTL_SECONDS: int = 86_400      # 24 hours
 MAX_TOKENS_BEDROCK: int = 500
@@ -51,6 +61,9 @@ STATE_ALIASES: dict[str, str] = {
 SCHEME_WIDOW_PENSION = "widow_pension_mh"
 SCHEME_DISABILITY_ALLOWANCE = "disability_allowance"
 SCHEME_NREGA = "nrega"
+SCHEME_PM_KISAN = "pm_kisan"
+SCHEME_OLD_AGE_PENSION = "old_age_pension"
+SCHEME_UJJWALA = "ujjwala_yojana"
 
 # ---------------------------------------------------------------------------
 # Rate limiting (informational; enforcement via AWS WAF)

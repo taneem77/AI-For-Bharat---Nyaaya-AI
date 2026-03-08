@@ -1,113 +1,149 @@
-# Nyaaya.ai Backend — Eligibility Brain
+# Nyaaya.ai — Welfare Benefits, Simplified
 
-AI-powered Indian government welfare eligibility platform. Users converse in Hinglish → Claude 3.5 Sonnet extracts structured facts → deterministic rule engine checks eligibility → strategy optimizer generates a week-by-week application plan.
+**AI-powered Indian government welfare eligibility engine** that helps citizens discover, qualify for, and apply to welfare schemes through a natural Hinglish conversation.
+
+> Built for the **AWS AI For Bharat Hackathon** — Prototype Phase
+
+---
+
+## The Problem
+
+**350M+ eligible Indians don't claim welfare benefits** because the process is confusing, multilingual, and bureaucratic. Forms are in English, rules are scattered across websites, and there's no one to guide them through.
+
+## Our Solution
+
+Nyaaya.ai is an end-to-end welfare eligibility platform that:
+
+1. **Interviews** users in natural Hinglish (Hindi + English) via an empathetic AI assistant
+2. **Extracts** structured eligibility data from conversational input
+3. **Evaluates** against 6 welfare schemes using a deterministic rule engine
+4. **Computes a Nyaaya Score** (0-100) — a novel "welfare accessibility index"
+5. **Generates an optimised application strategy** with week-by-week timelines
+6. **Creates personalised peer stories** so users learn from real-world experiences
+
+---
 
 ## Architecture
 
 ```
-User (Hinglish) → POST /interview → Bedrock Claude 3.5 Sonnet → DynamoDB session
-                → POST /evaluate  → Rule Engine → Strategy Optimizer → JSON response
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│  React SPA  │────▶│  FastAPI + Lambda │────▶│  Amazon Bedrock     │
+│  (Vite)     │     │  (Mangum)        │     │  (Claude Sonnet 4.5)│
+└─────────────┘     └──────┬───────────┘     └─────────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────────┐
+        │ DynamoDB  │ │ Amazon   │ │ Amazon       │
+        │ Sessions  │ │Translate │ │ Comprehend   │
+        └──────────┘ └──────────┘ └──────────────┘
 ```
 
-## Project Structure
+### AWS Services Used
 
-```
-Nyaaya/
-├── main.py              # FastAPI app + Mangum Lambda handler
-├── models.py            # Pydantic v2 schemas (UserProfile, InterviewState, …)
-├── rule_engine.py       # SchemeValidator — 3 deterministic rules + ME resolver
-├── bedrock_client.py    # Claude 3.5 Sonnet interview orchestration
-├── optimizer.py         # Strategy ranking + phase assignment
-├── dynamodb_utils.py    # DynamoDB mock + real boto3 client
-├── config.py            # AWS config, constants, shared enums
-├── requirements.txt
-└── tests/
-    ├── conftest.py
-    ├── test_rule_engine.py
-    ├── test_bedrock_integration.py
-    └── test_api_endpoints.py
-```
+| Service | Purpose |
+|---------|---------|
+| **Amazon Bedrock** (Claude Sonnet 4.5) | Hinglish interview, data extraction, story generation |
+| **DynamoDB** | Session persistence with TTL auto-expiry |
+| **Lambda** (via Mangum) | Serverless API hosting |
+| **API Gateway** | REST endpoint routing |
+| **Amazon Translate** | Real-time Hindi/English/Marathi translation |
+| **Amazon Comprehend** | Language detection |
+| **S3 + CloudFront** | Frontend static hosting |
 
-## Supported Schemes
+---
 
-| ID | Name | States | Monthly Benefit |
-|----|------|--------|-----------------|
-| `widow_pension_mh` | Widow Pension | Maharashtra | ₹600 |
-| `disability_allowance` | Disability Allowance | All | ₹500 |
-| `nrega` | NREGA Employment | MH / RJ / UP | ₹20,000/year |
+## Welfare Schemes Covered (6)
 
-## Local Development
+| Scheme | Benefit | Target |
+|--------|---------|--------|
+| Widow Pension (Maharashtra) | ₹600/month | Widows, income <₹15K |
+| Disability Allowance | ₹500/month | ≥40% disability, income <₹10K |
+| NREGA Employment Guarantee | ₹20,000/year | Rural, 18-65, income <₹20K |
+| PM-KISAN Samman Nidhi | ₹500/month | Farmers, rural, income <₹2L |
+| Indira Gandhi Old Age Pension | ₹500/month | Age ≥60, BPL |
+| PM Ujjwala Yojana (Free LPG) | ₹1,600 one-time | Women, BPL |
 
-### 1. Install dependencies
+---
+
+## Innovation Highlights
+
+### Nyaaya Score (0-100)
+A composite "welfare accessibility index" that quantifies how well-served a citizen is:
+- **Coverage** (40%): % of schemes qualified for
+- **Benefit** (30%): annual benefit vs ₹72K baseline income
+- **Speed** (15%): inverse of average processing time
+- **Confidence** (15%): average match confidence
+
+Grades: A (80+), B (60+), C (40+), D (20+), F (<20)
+
+### Bedrock-Powered Peer Stories
+Instead of static FAQs, Nyaaya generates **personalised peer success stories** based on the user's state, district, and eligible schemes — complete with real-world blockers and practical tips.
+
+### Hinglish-Native Interview
+The AI naturally handles code-mixing (Hindi + English) and extracts structured data without forms. Voice input supported via Web Speech API.
+
+### 3-Layer Validation Pipeline
+1. **Pydantic** — type, range, cross-field validation
+2. **Rule engine** — deterministic per-scheme eligibility (pure functions, zero side effects)
+3. **Strategy optimizer** — ranked application timeline with phase-based scheduling
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- AWS account with Bedrock access (Claude Sonnet 4.5)
+
+### Backend
+
 ```bash
 pip install -r requirements.txt
-```
-
-### 2. Run the API
-```bash
 uvicorn main:app --reload --port 8000
+# API docs at http://localhost:8000/docs
+# Uses mock DynamoDB locally — no AWS needed for basic testing
 ```
-- Swagger UI: http://localhost:8000/docs
-- By default, the **MockDynamoDBClient** is used (no AWS needed locally).
 
-### 3. Run tests
+### Frontend
+
 ```bash
-# From project root
-pytest tests/ -v
+cd frontend
+npm install
+npm run dev
+# Opens at http://localhost:5173
 ```
 
-### 4. Point to real DynamoDB
+### Environment Variables
+
 ```bash
-export USE_REAL_DYNAMODB=1
-export AWS_REGION=ap-south-1
-export DYNAMODB_TABLE_NAME=nyaaya_interviews
-uvicorn main:app --reload
-```
+# Backend
+AWS_REGION=ap-south-1
+BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-5-20250514
+DYNAMODB_TABLE_NAME=nyaaya_interviews
+USE_REAL_DYNAMODB=true  # only when using real AWS
 
-## API Endpoints
-
-### `POST /interview`
-Multi-turn Hinglish interview powered by Bedrock.
-
-**Request**
-```json
-{ "user_input": "Mera husband 5 saal pehle pass ho gaya", "session_id": "sess_abc123" }
-```
-
-**Response (200)**
-```json
-{
-  "status": "success",
-  "turn": 1,
-  "next_question": "Bahut dukh ki baat hai. Aapki umar kya hai?",
-  "extracted_so_far": { "marital_status": "widow", "life_event": "widow" },
-  "interview_complete": false
-}
+# Frontend (.env)
+VITE_API_URL=http://localhost:8000
 ```
 
 ---
 
-### `POST /evaluate`
-Direct eligibility evaluation from a fully-formed profile.
+## AWS Setup Guide
 
-**Request**: `UserProfile` JSON  
-**Response (200)**
-```json
-{
-  "status": "success",
-  "eligible_schemes": [ { "scheme_id": "widow_pension_mh", "eligible": true, … } ],
-  "strategy": [ { "rank": 1, "apply_week": 1, … } ],
-  "summary": { "total_monthly_benefit": 600, "first_year_total": 7200, … }
-}
+### 1. Enable Bedrock Model Access
+
+Go to **Amazon Bedrock → Model access → Manage model access** in `ap-south-1`.
+Request access to **Anthropic Claude Sonnet 4.5**. Approval is usually instant.
+
+```bash
+aws bedrock list-foundation-models --region ap-south-1 \
+  --query "modelSummaries[?modelId=='anthropic.claude-sonnet-4-5-20250514'].modelId"
 ```
 
-## DynamoDB Table Schema
+### 2. Create DynamoDB Table
 
-Table name: `nyaaya_interviews`  
-PK: `session_id` (String) — no SK.  
-TTL attribute: `ttl` (Number, epoch seconds, 24-hour expiry).
-
-Create with AWS CLI:
 ```bash
 aws dynamodb create-table \
   --table-name nyaaya_interviews \
@@ -115,56 +151,138 @@ aws dynamodb create-table \
   --key-schema AttributeName=session_id,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
   --region ap-south-1
-```
 
-Enable TTL:
-```bash
 aws dynamodb update-time-to-live \
   --table-name nyaaya_interviews \
-  --time-to-live-specification Enabled=true,AttributeName=ttl \
+  --time-to-live-specification "Enabled=true, AttributeName=ttl" \
   --region ap-south-1
 ```
 
-## Lambda Deployment
+### 3. Create IAM Role for Lambda
 
-`handler` in `main.py` is the Mangum-wrapped Lambda entry point.
+```bash
+aws iam create-role \
+  --role-name nyaaya-lambda-role \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": {"Service": "lambda.amazonaws.com"},
+      "Action": "sts:AssumeRole"
+    }]
+  }'
+
+aws iam attach-role-policy --role-name nyaaya-lambda-role \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+aws iam put-role-policy --role-name nyaaya-lambda-role \
+  --policy-name nyaaya-services \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["bedrock:InvokeModel"],
+        "Resource": "arn:aws:bedrock:ap-south-1::foundation-model/anthropic.claude-sonnet-4-5-20250514"
+      },
+      {
+        "Effect": "Allow",
+        "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
+        "Resource": "arn:aws:dynamodb:ap-south-1:*:table/nyaaya_interviews"
+      },
+      {
+        "Effect": "Allow",
+        "Action": ["translate:TranslateText", "comprehend:DetectDominantLanguage"],
+        "Resource": "*"
+      }
+    ]
+  }'
+```
+
+### 4. Deploy Lambda
+
+```bash
+pip install -r requirements.txt -t package/
+cp *.py package/
+cd package && zip -r ../nyaaya-lambda.zip . && cd ..
+
+aws lambda create-function \
+  --function-name nyaaya-api \
+  --runtime python3.11 \
+  --handler main.handler \
+  --role arn:aws:iam::<ACCOUNT_ID>:role/nyaaya-lambda-role \
+  --zip-file fileb://nyaaya-lambda.zip \
+  --timeout 30 \
+  --memory-size 512 \
+  --environment Variables="{AWS_REGION=ap-south-1,DYNAMODB_TABLE_NAME=nyaaya_interviews,USE_REAL_DYNAMODB=true}" \
+  --region ap-south-1
+```
+
+### 5. API Gateway
+
+Create an **HTTP API** in API Gateway with Lambda integration.
+Enable CORS (all origins for prototype). Note the invoke URL.
+
+### 6. Deploy Frontend
+
+```bash
+cd frontend
+VITE_API_URL=https://<api-gateway-url> npm run build
+aws s3 mb s3://nyaaya-frontend --region ap-south-1
+aws s3 sync dist/ s3://nyaaya-frontend --delete
+```
+
+Create a CloudFront distribution pointing to the S3 bucket.
+Add error response: 404 → `/index.html` (SPA routing).
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/interview` | Multi-turn Hinglish interview (Bedrock) |
+| `POST` | `/evaluate` | Evaluate eligibility + strategy + Nyaaya Score |
+| `POST` | `/translate` | Translate text (Amazon Translate) |
+| `POST` | `/stories` | Generate personalised peer stories (Bedrock) |
+| `GET` | `/health` | Health check |
+| `GET` | `/docs` | Swagger UI |
+
+---
+
+## Project Structure
 
 ```
-Handler: main.handler
-Runtime: python3.12
-Timeout: 30s
-Memory:  512MB
-Environment variables:
-  AWS_REGION=ap-south-1
-  BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022
-  DYNAMODB_TABLE_NAME=nyaaya_interviews
-  USE_REAL_DYNAMODB=1
+├── main.py               # FastAPI app + Lambda handler (6 endpoints)
+├── bedrock_client.py     # Amazon Bedrock interview + story generation
+├── rule_engine.py        # Deterministic eligibility rules (6 schemes)
+├── optimizer.py          # Strategy optimizer + Nyaaya Score computation
+├── models.py             # Pydantic v2 schemas
+├── config.py             # AWS config + constants + enums
+├── dynamodb_utils.py     # DynamoDB session persistence (mock + real)
+├── translate_client.py   # Amazon Translate + Comprehend integration
+├── requirements.txt
+├── tests/
+│   ├── test_rule_engine.py
+│   ├── test_bedrock_integration.py
+│   └── test_api_endpoints.py
+└── frontend/
+    ├── src/
+    │   ├── pages/        # Welcome, Interview, Results, Strategy, Stories
+    │   ├── components/   # NyaayaScore, ChatBubble, VoiceButton, LanguageToggle
+    │   └── api/client.js # API client
+    ├── index.html
+    └── package.json
 ```
 
-Required IAM permissions:
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "bedrock:InvokeModel",
-    "dynamodb:PutItem",
-    "dynamodb:GetItem"
-  ],
-  "Resource": "*"
-}
+---
+
+## Running Tests
+
+```bash
+pytest tests/ -v
 ```
 
-## Validation Layers
+---
 
-1. **Pydantic (Layer 1)** — type, range, required fields → HTTP 422  
-2. **Business logic (Layer 2)** — ELDERLY/age consistency, disability cert pair → HTTP 422  
-3. **Rule engine (Layer 3)** — deterministic eligibility, always returns True/False  
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AWS_REGION` | `ap-south-1` | AWS region |
-| `BEDROCK_MODEL_ID` | `anthropic.claude-3-5-sonnet-20241022` | Bedrock model |
-| `DYNAMODB_TABLE_NAME` | `nyaaya_interviews` | DynamoDB table |
-| `USE_REAL_DYNAMODB` | *(unset)* | Set to `1` to use real DynamoDB |
+Built with care for Bharat.

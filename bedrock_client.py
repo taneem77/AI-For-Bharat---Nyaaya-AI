@@ -1,9 +1,11 @@
 """
-bedrock_client.py — Amazon Bedrock (Claude 3.5 Sonnet) interview orchestration
+bedrock_client.py — Amazon Bedrock interview orchestration (Converse API)
+
+Uses the unified Converse API which works with all Bedrock models
+(Amazon Nova, Anthropic Claude, etc.) without model-specific request formats.
 
 Handles: prompt construction, JSON extraction, malformed-response fallbacks.
-All AWS errors (including NoCredentialsError) are caught and return a safe
-Hinglish fallback — the endpoint never throws a 500 due to Bedrock issues.
+All AWS errors are caught and return a safe Hinglish fallback.
 """
 from __future__ import annotations
 
@@ -23,7 +25,7 @@ from config import (
 )
 
 # ---------------------------------------------------------------------------
-# System prompt sent to Claude on every request
+# System prompt sent on every request
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """You are an empathetic Indian Government Welfare Assistant named Nyaaya.
@@ -35,7 +37,7 @@ STRICT RULES:
 3. Extract ONLY these facts: age, income, marital_status, dependents, state,
    district, has_disability_cert, disability_percentage, life_event, is_rural, has_aadhaar.
 4. NEVER determine eligibility yourself. Only extract facts.
-5. After 12–15 turns (or when all key fields are collected), set interview_complete=true.
+5. After 6–8 turns (or when all key fields are collected), set interview_complete=true. Be efficient — ask about multiple related fields if natural (e.g. "Aapki age aur income kitni hai?").
 6. If the user is confused, explain gently in simple Hindi + English.
 
 VALID VALUES:
@@ -88,7 +90,7 @@ def _extract_json(text: str) -> dict[str, Any]:
     Extract the first valid JSON object from text.
     Handles markdown-wrapped JSON (```json ... ```) and plain JSON.
     """
-    # 1. Try direct parse first (Claude usually returns clean JSON)
+    # 1. Try direct parse first
     try:
         return json.loads(text.strip())
     except json.JSONDecodeError:
@@ -113,29 +115,21 @@ def _extract_json(text: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Core interview function
+# Core interview function (Converse API)
 # ---------------------------------------------------------------------------
 
 def conduct_interview(
     user_input: str,
     conversation_history: list[dict[str, Any]],
+    accumulated_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Call Claude 3.5 Sonnet via Bedrock with the conversation context.
+    Call Bedrock via the unified Converse API with conversation context.
 
     ALWAYS returns a dict — never raises. On any AWS / parsing error, returns
     a safe Hinglish fallback so the endpoint stays at 200.
-
-    Args:
-        user_input: Latest message from the user (Hinglish).
-        conversation_history: List of ConversationTurn dicts (last N used).
-
-    Returns:
-        Dict with keys: next_question, extracted_data, confidence, interview_complete
     """
     try:
-        # Placed inside try so NoCredentialsError / EndpointResolutionError
-        # is caught by the BotoCoreError handler below.
         client = _get_bedrock_client()
 
         # Build context window from last N turns
@@ -148,31 +142,38 @@ def conduct_interview(
             )
         context_block = "\n".join(context_lines) if context_lines else "(This is the first turn)"
 
+        # Show the model what's already been collected
+        collected = accumulated_data or {}
+        all_fields = ["age", "income", "marital_status", "dependents", "state",
+                      "district", "has_disability_cert", "disability_percentage",
+                      "life_event", "is_rural", "has_aadhaar"]
+        collected_str = json.dumps(collected, indent=2) if collected else "{}"
+        missing = [f for f in all_fields if f not in collected]
+        missing_str = ", ".join(missing) if missing else "NONE — all collected!"
+
         prompt = (
             f"Conversation History:\n{context_block}\n\n"
+            f"ALREADY COLLECTED DATA (do NOT re-ask these):\n{collected_str}\n\n"
+            f"STILL MISSING FIELDS: {missing_str}\n\n"
             f"User's Latest Input: \"{user_input}\"\n\n"
-            "Continue the interview. Ask the next relevant question. "
+            "Ask about ONE of the missing fields. If all fields are collected, set interview_complete=true. "
             "Return ONLY valid JSON per the output format."
         )
 
-        body = json.dumps(
-            {
-                "anthropic_version": "bedrock-2023-06-01",
-                "max_tokens": MAX_TOKENS_BEDROCK,
-                "system": SYSTEM_PROMPT,
-                "messages": [{"role": "user", "content": prompt}],
-            }
+        # Converse API — unified across all Bedrock models
+        response = client.converse(
+            modelId=BEDROCK_MODEL_ID,
+            system=[{"text": SYSTEM_PROMPT}],
+            messages=[
+                {"role": "user", "content": [{"text": prompt}]}
+            ],
+            inferenceConfig={
+                "maxTokens": MAX_TOKENS_BEDROCK,
+                "temperature": 0.3,
+            },
         )
 
-        response = client.invoke_model(
-            modelId=BEDROCK_MODEL_ID,
-            contentType="application/json",
-            accept="application/json",
-            body=body,
-        )
-        raw_body = response["body"].read().decode("utf-8")
-        response_json = json.loads(raw_body)
-        assistant_text: str = response_json["content"][0]["text"]
+        assistant_text = response["output"]["message"]["content"][0]["text"]
 
         result = _extract_json(assistant_text)
 
@@ -196,10 +197,8 @@ def conduct_interview(
         return _fallback_response(f"Bedrock error: {error_code}")
 
     except BotoCoreError as e:
-        # Covers NoCredentialsError, EndpointResolutionError, and all boto
-        # low-level errors that occur before a real HTTP response arrives.
         global _bedrock_client
-        _bedrock_client = None          # force re-init on next warm request
+        _bedrock_client = None
         logger.error(
             "Bedrock BotoCoreError [%s]: %s",
             type(e).__name__,
@@ -212,7 +211,6 @@ def conduct_interview(
         return _fallback_response(str(e))
 
     except Exception as e:
-        # Last-resort catch — should never be reached, but guarantees no 500.
         logger.exception("Unexpected error in conduct_interview: %s", str(e))
         return _fallback_response(f"Unexpected error: {type(e).__name__}")
 
@@ -234,3 +232,108 @@ def _fallback_response(reason: str) -> dict[str, Any]:
         "interview_complete": False,
         "error": reason,
     }
+
+
+# ---------------------------------------------------------------------------
+# Bedrock-powered contextual story generation (Converse API)
+# ---------------------------------------------------------------------------
+
+STORIES_PROMPT = """You are generating realistic, anonymised peer success stories for
+Indian government welfare scheme applicants. These stories help users understand the
+real-world application process.
+
+Generate {count} stories for someone in {state}{district_clause} applying to these schemes: {schemes}.
+
+Each story MUST be a JSON object with these fields:
+- name: realistic Indian name (first name + last initial, e.g. "Savitri D.")
+- district: a real district in {state}
+- state: "{state}"
+- age: age range string like "30-39", "40-49"
+- scheme: the full scheme name
+- status: "approved" (80% of stories) or "rejected" (20%)
+- weeks: realistic processing time in weeks (integer)
+- approval_rate: historical approval rate as integer 70-95
+- blockers: list of 0-2 real-world blockers they faced (document issues, bureaucratic delays)
+- tips: list of 2-3 practical, specific tips for the applicant
+
+Make blockers and tips SPECIFIC to India's welfare bureaucracy (e.g. "BPL card expired",
+"Gram Sevak unavailable on Tuesdays", "Private hospital cert rejected").
+
+Return ONLY a JSON array of story objects. No markdown, no explanation.
+"""
+
+
+def generate_stories(
+    state: str,
+    district: str,
+    scheme_ids: list[str],
+) -> list[dict[str, Any]]:
+    """
+    Generate contextual peer stories via Bedrock Converse API.
+    Falls back to hardcoded stories on any error.
+    """
+    if not scheme_ids:
+        scheme_ids = ["general welfare schemes"]
+
+    scheme_names = ", ".join(sid.replace("_", " ").title() for sid in scheme_ids)
+    district_clause = f", {district} district" if district else ""
+    count = min(len(scheme_ids) * 2, 6)
+
+    prompt = STORIES_PROMPT.format(
+        count=count,
+        state=state,
+        district_clause=district_clause,
+        schemes=scheme_names,
+    )
+
+    try:
+        client = _get_bedrock_client()
+
+        response = client.converse(
+            modelId=BEDROCK_MODEL_ID,
+            system=[{"text": "You are a helpful assistant that generates realistic Indian welfare scheme applicant stories. Return ONLY valid JSON arrays."}],
+            messages=[
+                {"role": "user", "content": [{"text": prompt}]}
+            ],
+            inferenceConfig={
+                "maxTokens": 2000,
+                "temperature": 0.5,
+            },
+        )
+
+        text = response["output"]["message"]["content"][0]["text"]
+
+        stories = _extract_json(text)
+        # Handle both array and object-wrapped array
+        if isinstance(stories, dict) and "stories" in stories:
+            stories = stories["stories"]
+        if isinstance(stories, list):
+            logger.info("Generated %d stories for %s", len(stories), state)
+            return stories
+        return []
+
+    except Exception as e:
+        logger.error("Story generation failed: %s", str(e))
+        return _fallback_stories(state, scheme_names)
+
+
+def _fallback_stories(state: str, schemes: str) -> list[dict[str, Any]]:
+    """Return hardcoded fallback stories when Bedrock is unavailable."""
+    return [
+        {
+            "name": "Savitri D.",
+            "district": "Pune",
+            "state": state,
+            "age": "40-49",
+            "scheme": schemes.split(",")[0].strip() if schemes else "Welfare Scheme",
+            "status": "approved",
+            "weeks": 8,
+            "approval_rate": 88,
+            "blockers": ["Death certificate had spelling mismatch with Aadhaar name"],
+            "tips": [
+                "Get name corrected on documents BEFORE applying",
+                "Carry 3 photocopies of every document",
+                "Apply through Gram Sevak for faster processing",
+            ],
+        },
+    ]

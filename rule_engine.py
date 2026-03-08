@@ -12,6 +12,9 @@ from typing import Callable
 from config import (
     SCHEME_DISABILITY_ALLOWANCE,
     SCHEME_NREGA,
+    SCHEME_OLD_AGE_PENSION,
+    SCHEME_PM_KISAN,
+    SCHEME_UJJWALA,
     SCHEME_WIDOW_PENSION,
     MaritalStatus,
     LifeEvent,
@@ -61,6 +64,45 @@ _SCHEME_META: dict[str, dict] = {
         "processing_weeks": 12,
         "approval_rate": 0.78,
     },
+    SCHEME_PM_KISAN: {
+        "scheme_name": "PM-KISAN Samman Nidhi",
+        "benefit_monthly": 500,             # ₹6,000/year = ₹500/month
+        "benefit_onetime": 0,
+        "required_documents": [
+            "aadhaar",
+            "land_ownership_record",
+            "bank_passbook",
+            "kisan_registration",
+        ],
+        "processing_weeks": 6,
+        "approval_rate": 0.92,
+    },
+    SCHEME_OLD_AGE_PENSION: {
+        "scheme_name": "Indira Gandhi Old Age Pension",
+        "benefit_monthly": 500,
+        "benefit_onetime": 0,
+        "required_documents": [
+            "aadhaar",
+            "age_proof",
+            "bpl_card",
+            "bank_passbook",
+        ],
+        "processing_weeks": 10,
+        "approval_rate": 0.88,
+    },
+    SCHEME_UJJWALA: {
+        "scheme_name": "PM Ujjwala Yojana (Free LPG)",
+        "benefit_monthly": 0,
+        "benefit_onetime": 1_600,           # free LPG connection subsidy
+        "required_documents": [
+            "aadhaar",
+            "bpl_card",
+            "bank_passbook",
+            "address_proof",
+        ],
+        "processing_weeks": 4,
+        "approval_rate": 0.94,
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -69,8 +111,8 @@ _SCHEME_META: dict[str, dict] = {
 # ---------------------------------------------------------------------------
 
 _MUTUAL_EXCLUSIONS: dict[tuple[str, str], str] = {
-    (SCHEME_WIDOW_PENSION, "old_age_pension"): SCHEME_WIDOW_PENSION,
-    (SCHEME_DISABILITY_ALLOWANCE, "old_age_pension"): SCHEME_DISABILITY_ALLOWANCE,
+    (SCHEME_WIDOW_PENSION, SCHEME_OLD_AGE_PENSION): SCHEME_WIDOW_PENSION,
+    (SCHEME_DISABILITY_ALLOWANCE, SCHEME_OLD_AGE_PENSION): SCHEME_DISABILITY_ALLOWANCE,
 }
 
 
@@ -284,6 +326,110 @@ class SchemeValidator:
         return _make_result(scheme_id, eligible, confidence, reason)
 
     # ------------------------------------------------------------------
+    # Rule 4: PM-KISAN Samman Nidhi (farmers, all pilot states)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def check_pm_kisan(profile: UserProfile) -> EligibilityResult:
+        scheme_id = SCHEME_PM_KISAN
+        reasons: list[str] = []
+        failed: list[str] = []
+
+        checks = [
+            (profile.life_event == LifeEvent.FARMER,
+             "registered as farmer",
+             f"life_event is {profile.life_event.value} (must be farmer)"),
+            (profile.income < 200_000,
+             f"income ₹{profile.income} is below ₹2,00,000 threshold",
+             f"income ₹{profile.income} exceeds ₹2,00,000 limit"),
+            (profile.is_rural,
+             "rural resident",
+             "urban residents are not eligible for PM-KISAN"),
+            (profile.has_aadhaar,
+             "has Aadhaar card",
+             "Aadhaar card required for PM-KISAN DBT"),
+        ]
+
+        for passed, ok_reason, fail_reason in checks:
+            (reasons if passed else failed).append(ok_reason if passed else fail_reason)
+
+        eligible = len(failed) == 0
+        confidence = 0.93 if eligible else 0.0
+        reason = ("You meet all eligibility criteria: " + ", ".join(reasons)) if eligible else ("Not eligible: " + "; ".join(failed))
+
+        logger.info("check_pm_kisan | eligible=%s | life_event=%s income=%d", eligible, profile.life_event.value, profile.income)
+        return _make_result(scheme_id, eligible, confidence, reason)
+
+    # ------------------------------------------------------------------
+    # Rule 5: Indira Gandhi Old Age Pension
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def check_old_age_pension(profile: UserProfile) -> EligibilityResult:
+        scheme_id = SCHEME_OLD_AGE_PENSION
+        reasons: list[str] = []
+        failed: list[str] = []
+
+        checks = [
+            (profile.age >= 60,
+             f"age {profile.age} meets ≥60 requirement",
+             f"age {profile.age} is below 60"),
+            (profile.income < 10_000,
+             f"income ₹{profile.income} is below ₹10,000 BPL threshold",
+             f"income ₹{profile.income} exceeds ₹10,000 BPL limit"),
+            (profile.has_aadhaar,
+             "has Aadhaar card",
+             "Aadhaar card required"),
+        ]
+
+        for passed, ok_reason, fail_reason in checks:
+            (reasons if passed else failed).append(ok_reason if passed else fail_reason)
+
+        eligible = len(failed) == 0
+        confidence = 0.90 if eligible else 0.0
+        reason = ("You meet all eligibility criteria: " + ", ".join(reasons)) if eligible else ("Not eligible: " + "; ".join(failed))
+
+        logger.info("check_old_age_pension | eligible=%s | age=%d income=%d", eligible, profile.age, profile.income)
+        return _make_result(scheme_id, eligible, confidence, reason)
+
+    # ------------------------------------------------------------------
+    # Rule 6: PM Ujjwala Yojana (free LPG for BPL women)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def check_ujjwala(profile: UserProfile) -> EligibilityResult:
+        scheme_id = SCHEME_UJJWALA
+        reasons: list[str] = []
+        failed: list[str] = []
+
+        is_woman = profile.marital_status in {MaritalStatus.WIDOW, MaritalStatus.MARRIED, MaritalStatus.DIVORCED, MaritalStatus.SEPARATED}
+
+        checks = [
+            (is_woman,
+             "eligible woman applicant",
+             "PM Ujjwala prioritises women-headed households"),
+            (profile.income < 15_000,
+             f"income ₹{profile.income} is below BPL threshold",
+             f"income ₹{profile.income} exceeds BPL threshold"),
+            (profile.age >= 18,
+             f"age {profile.age} meets ≥18 requirement",
+             f"age {profile.age} is below 18"),
+            (profile.has_aadhaar,
+             "has Aadhaar card",
+             "Aadhaar card required"),
+        ]
+
+        for passed, ok_reason, fail_reason in checks:
+            (reasons if passed else failed).append(ok_reason if passed else fail_reason)
+
+        eligible = len(failed) == 0
+        confidence = 0.91 if eligible else 0.0
+        reason = ("You meet all eligibility criteria: " + ", ".join(reasons)) if eligible else ("Not eligible: " + "; ".join(failed))
+
+        logger.info("check_ujjwala | eligible=%s | income=%d", eligible, profile.income)
+        return _make_result(scheme_id, eligible, confidence, reason)
+
+    # ------------------------------------------------------------------
     # Dispatcher: validate by scheme_id
     # ------------------------------------------------------------------
 
@@ -294,6 +440,9 @@ class SchemeValidator:
             SCHEME_WIDOW_PENSION: SchemeValidator.check_widow_pension,
             SCHEME_DISABILITY_ALLOWANCE: SchemeValidator.check_disability_allowance,
             SCHEME_NREGA: SchemeValidator.check_nrega,
+            SCHEME_PM_KISAN: SchemeValidator.check_pm_kisan,
+            SCHEME_OLD_AGE_PENSION: SchemeValidator.check_old_age_pension,
+            SCHEME_UJJWALA: SchemeValidator.check_ujjwala,
         }
         checker = dispatcher.get(scheme_id)
         if checker is None:
@@ -336,6 +485,9 @@ class SchemeValidator:
             SCHEME_WIDOW_PENSION,
             SCHEME_DISABILITY_ALLOWANCE,
             SCHEME_NREGA,
+            SCHEME_PM_KISAN,
+            SCHEME_OLD_AGE_PENSION,
+            SCHEME_UJJWALA,
         ]
 
         results: dict[str, EligibilityResult] = {

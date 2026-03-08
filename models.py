@@ -210,6 +210,31 @@ class EvaluateResponse(BaseModel):
     summary: dict[str, Any]
 
 
+class TranslateRequest(BaseModel):
+    """Request body for POST /translate."""
+
+    text: str = Field(..., min_length=1, description="Text to translate")
+    source_lang: str = Field(default="auto", description="Source language code")
+    target_lang: str = Field(default="hi", description="Target language code")
+
+
+class TranslateResponse(BaseModel):
+    """Response for POST /translate."""
+
+    status: str = "success"
+    translated_text: str
+    source_language: str
+    target_language: str
+
+
+class StoriesRequest(BaseModel):
+    """Request body for POST /stories."""
+
+    state: str = Field(default="Maharashtra")
+    scheme_ids: list[str] = Field(default_factory=list)
+    district: str = Field(default="")
+
+
 class ErrorResponse(BaseModel):
     """Standardised error response."""
 

@@ -87,15 +87,22 @@ class RealDynamoDBClient(DynamoDBInterface):
         self._table = dynamodb.Table(table_name)
 
     def put_item(self, item: dict[str, Any]) -> None:
-        self._table.put_item(Item=item)
-        logger.info("DynamoDB PUT: session_id=%s", item.get("session_id"))
+        try:
+            self._table.put_item(Item=item)
+            logger.info("DynamoDB PUT: session_id=%s", item.get("session_id"))
+        except Exception as e:
+            logger.error("DynamoDB PUT failed: %s", str(e))
 
     def get_item(self, session_id: str) -> dict[str, Any] | None:
-        response = self._table.get_item(Key={"session_id": session_id})
-        item = response.get("Item")
-        if item is None:
-            logger.info("DynamoDB GET miss: session_id=%s", session_id)
-        return item
+        try:
+            response = self._table.get_item(Key={"session_id": session_id})
+            item = response.get("Item")
+            if item is None:
+                logger.info("DynamoDB GET miss: session_id=%s", session_id)
+            return item
+        except Exception as e:
+            logger.error("DynamoDB GET failed: %s", str(e))
+            return None
 
 
 # ---------------------------------------------------------------------------
