@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLanguage } from '../context/LanguageContext'
 
 const GRADE_COLORS = {
   A: { ring: 'text-emerald-400', bg: 'bg-emerald-400', glow: 'shadow-emerald-500/30' },
@@ -8,14 +9,15 @@ const GRADE_COLORS = {
   F: { ring: 'text-red-400', bg: 'bg-red-400', glow: 'shadow-red-500/30' },
 }
 
-const LABELS = {
-  coverage: 'Coverage',
-  benefit: 'Benefit',
-  speed: 'Speed',
-  confidence: 'Confidence',
+const LABEL_KEYS = {
+  coverage: 'score_coverage',
+  benefit: 'score_benefit',
+  speed: 'score_speed',
+  confidence: 'score_confidence',
 }
 
 export default function NyaayaScore({ scoreData }) {
+  const { t } = useLanguage()
   const [animatedScore, setAnimatedScore] = useState(0)
 
   const score = scoreData?.score ?? 0
@@ -24,7 +26,6 @@ export default function NyaayaScore({ scoreData }) {
   const interpretation = scoreData?.interpretation ?? ''
   const colors = GRADE_COLORS[grade] || GRADE_COLORS.F
 
-  // Animate the score counter
   useEffect(() => {
     if (score === 0) return
     const duration = 1200
@@ -43,18 +44,15 @@ export default function NyaayaScore({ scoreData }) {
     return () => clearInterval(timer)
   }, [score])
 
-  // SVG circle params
   const radius = 54
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (animatedScore / 100) * circumference
 
   return (
     <div className="animate-fade-slide-up">
-      {/* Score Ring */}
       <div className="flex flex-col items-center mb-5">
-        <div className={`relative w-36 h-36 ${colors.glow} shadow-lg rounded-full`}>
+        <div className={`relative w-36 h-36 ${colors.glow} shadow-lg rounded-full`} role="img" aria-label={`Nyaaya Score: ${score}/100, Grade ${grade}`}>
           <svg className="w-36 h-36 -rotate-90" viewBox="0 0 120 120">
-            {/* Background circle */}
             <circle
               cx="60" cy="60" r={radius}
               fill="none"
@@ -62,7 +60,6 @@ export default function NyaayaScore({ scoreData }) {
               strokeWidth="8"
               className="text-dark-700"
             />
-            {/* Animated progress circle */}
             <circle
               cx="60" cy="60" r={radius}
               fill="none"
@@ -77,18 +74,17 @@ export default function NyaayaScore({ scoreData }) {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-3xl font-bold text-white">{Math.round(animatedScore)}</span>
-            <span className={`text-xs font-semibold ${colors.ring}`}>Grade {grade}</span>
+            <span className={`text-xs font-semibold ${colors.ring}`}>{t('score_grade')} {grade}</span>
           </div>
         </div>
         <p className="text-sm text-slate-300 text-center mt-3 max-w-xs">{interpretation}</p>
       </div>
 
-      {/* Breakdown bars */}
       <div className="space-y-2.5">
         {Object.entries(breakdown).map(([key, value]) => (
           <div key={key}>
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-slate-400">{LABELS[key] || key}</span>
+              <span className="text-slate-400">{t(LABEL_KEYS[key]) || key}</span>
               <span className="text-slate-300 font-medium">{Math.round(value)}%</span>
             </div>
             <div className="h-2 bg-dark-700 rounded-full overflow-hidden">

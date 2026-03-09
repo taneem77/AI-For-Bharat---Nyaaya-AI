@@ -247,9 +247,14 @@ class TestEvaluateEndpoint:
         assert r.status_code == 422   # FastAPI auto-validates Pydantic
 
     def test_validation_error_bad_state(self, client):
-        bad = {**_WIDOW_PROFILE, "state": "Bihar"}
+        bad = {**_WIDOW_PROFILE, "state": "Narnia"}
         r = client.post("/evaluate", json=bad)
         assert r.status_code == 422
+
+    def test_bihar_is_now_valid_state(self, client):
+        profile = {**_WIDOW_PROFILE, "state": "Bihar"}
+        r = client.post("/evaluate", json=profile)
+        assert r.status_code == 200
 
     def test_validation_error_disability_cert_no_percentage(self, client):
         bad = {**_DISABLED_PROFILE, "disability_percentage": None}
@@ -261,13 +266,18 @@ class TestEvaluateEndpoint:
         r = client.post("/evaluate", json=bad)
         assert r.status_code == 422
 
-    def test_ineligible_person_returns_success_with_false_eligible(self, client):
-        """High income person should get success response with eligible=False on all."""
+    def test_high_income_person_loses_income_gated_schemes(self, client):
+        """High income person should be ineligible for income-restricted schemes."""
         rich = {**_WIDOW_PROFILE, "income": 999_999}
         r = client.post("/evaluate", json=rich)
         assert r.status_code == 200
         body = r.json()
-        assert all(not s["eligible"] for s in body["eligible_schemes"])
+        eligible_ids = {s["scheme_id"] for s in body["eligible_schemes"] if s["eligible"]}
+        # Income-gated schemes should NOT be eligible
+        assert "widow_pension_mh" not in eligible_ids
+        assert "disability_allowance" not in eligible_ids
+        assert "nrega" not in eligible_ids
+        assert "ujjwala_yojana" not in eligible_ids
 
     def test_state_case_insensitive(self, client):
         """State field should normalise case."""

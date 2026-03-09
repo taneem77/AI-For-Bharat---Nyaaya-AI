@@ -66,15 +66,15 @@ class TestFallbackResponse:
 # conduct_interview — mocked Bedrock
 # ---------------------------------------------------------------------------
 
-def _make_bedrock_response(payload: dict) -> MagicMock:
-    """Build a mock response matching Bedrock API shape."""
-    body_bytes = json.dumps({"content": [{"text": json.dumps(payload)}]}).encode()
-    mock_body = MagicMock()
-    mock_body.read.return_value = body_bytes
-
-    mock_response = MagicMock()
-    mock_response.__getitem__ = lambda self, key: mock_body if key == "body" else None
-    return mock_response
+def _make_bedrock_response(payload: dict) -> dict:
+    """Build a mock response matching Bedrock Converse API shape."""
+    return {
+        "output": {
+            "message": {
+                "content": [{"text": json.dumps(payload)}]
+            }
+        }
+    }
 
 
 @pytest.fixture()
@@ -93,7 +93,7 @@ class TestConductInterview:
             "confidence": 0.7,
             "interview_complete": False,
         }
-        mock_bedrock_client.invoke_model.return_value = _make_bedrock_response(payload)
+        mock_bedrock_client.converse.return_value = _make_bedrock_response(payload)
 
         result = conduct_interview(
             "Mera husband 5 saal pehle pass ho gaya",
@@ -106,7 +106,7 @@ class TestConductInterview:
     def test_missing_fields_use_defaults(self, mock_bedrock_client):
         """Claude returns partial JSON — missing keys get safe defaults."""
         payload = {"extracted_data": {"age": 52}}
-        mock_bedrock_client.invoke_model.return_value = _make_bedrock_response(payload)
+        mock_bedrock_client.converse.return_value = _make_bedrock_response(payload)
 
         result = conduct_interview("Meri age 52 hai", [])
         assert "next_question" in result
@@ -120,14 +120,9 @@ class TestConductInterview:
             "confidence": 0.9,
             "interview_complete": False,
         })
-        body_bytes = json.dumps({
-            "content": [{"text": f"```json\n{inner}\n```"}]
-        }).encode()
-        mock_body = MagicMock()
-        mock_body.read.return_value = body_bytes
-        mock_resp = MagicMock()
-        mock_resp.__getitem__ = lambda self, k: mock_body if k == "body" else None
-        mock_bedrock_client.invoke_model.return_value = mock_resp
+        mock_bedrock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": f"```json\n{inner}\n```"}]}}
+        }
 
         result = conduct_interview("Meri age 45 hai", [])
         assert result["extracted_data"]["age"] == 45
@@ -135,6 +130,7 @@ class TestConductInterview:
     def test_context_window_passes_last_5_turns(self, mock_bedrock_client):
         """Verify only last CONTEXT_WINDOW_TURNS turns are sent (side effect check)."""
         from config import CONTEXT_WINDOW_TURNS
+        import re
 
         payload = {
             "next_question": "Q?",
@@ -142,7 +138,7 @@ class TestConductInterview:
             "confidence": 0.5,
             "interview_complete": False,
         }
-        mock_bedrock_client.invoke_model.return_value = _make_bedrock_response(payload)
+        mock_bedrock_client.converse.return_value = _make_bedrock_response(payload)
 
         history = [
             {"turn": i, "user_input": f"u{i}", "assistant_response": f"a{i}"}
@@ -150,35 +146,27 @@ class TestConductInterview:
         ]
         conduct_interview("latest", history)
 
-        call_kwargs = mock_bedrock_client.invoke_model.call_args
-        body_str = call_kwargs[1]["body"] if call_kwargs[1] else call_kwargs[0][0]
-        body = json.loads(body_str)
-        prompt_content = body["messages"][0]["content"]
-        # Only last CONTEXT_WINDOW_TURNS turns should appear
-        # Count "Turn X:" occurrences
-        import re
-        turns_mentioned = re.findall(r"Turn \d+:", prompt_content)
+        # Extract the prompt text sent to converse
+        call_kwargs = mock_bedrock_client.converse.call_args
+        messages = call_kwargs[1]["messages"] if "messages" in (call_kwargs[1] or {}) else call_kwargs.kwargs["messages"]
+        prompt_text = messages[0]["content"][0]["text"]
+        turns_mentioned = re.findall(r"Turn \d+:", prompt_text)
         assert len(turns_mentioned) <= CONTEXT_WINDOW_TURNS
 
     def test_bedrock_client_error_returns_fallback(self, mock_bedrock_client):
         from botocore.exceptions import ClientError
-        mock_bedrock_client.invoke_model.side_effect = ClientError(
+        mock_bedrock_client.converse.side_effect = ClientError(
             {"Error": {"Code": "ThrottlingException", "Message": "rate limit"}},
-            "InvokeModel",
+            "Converse",
         )
         result = conduct_interview("Any input", [])
         assert result["interview_complete"] is False
         assert "error" in result
 
     def test_unparseable_response_returns_fallback(self, mock_bedrock_client):
-        body_bytes = json.dumps({
-            "content": [{"text": "Sorry, I cannot help with that."}]
-        }).encode()
-        mock_body = MagicMock()
-        mock_body.read.return_value = body_bytes
-        mock_resp = MagicMock()
-        mock_resp.__getitem__ = lambda self, k: mock_body if k == "body" else None
-        mock_bedrock_client.invoke_model.return_value = mock_resp
+        mock_bedrock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "Sorry, I cannot help with that."}]}}
+        }
 
         result = conduct_interview("Kuch bhi", [])
         assert result["interview_complete"] is False
@@ -191,7 +179,7 @@ class TestConductInterview:
             "confidence": 0.95,
             "interview_complete": True,
         }
-        mock_bedrock_client.invoke_model.return_value = _make_bedrock_response(payload)
+        mock_bedrock_client.converse.return_value = _make_bedrock_response(payload)
         result = conduct_interview("Done", [])
         assert result["interview_complete"] is True
 
@@ -242,7 +230,7 @@ def test_bedrock_fixture_expected_keys(fixture, mock_bedrock_client):
         "confidence": 0.8,
         "interview_complete": False,
     }
-    mock_bedrock_client.invoke_model.return_value = _make_bedrock_response(payload)
+    mock_bedrock_client.converse.return_value = _make_bedrock_response(payload)
 
     result = conduct_interview(fixture["user_input"], [])
     for key, expected_val in fixture["expected_extracted"].items():

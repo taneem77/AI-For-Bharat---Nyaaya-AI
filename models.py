@@ -33,7 +33,7 @@ class UserProfile(BaseModel):
     income: int = Field(..., ge=0, le=1_000_000, description="Annual income in INR")
     marital_status: MaritalStatus
     dependents: int = Field(..., ge=0, le=20, description="Number of dependents")
-    state: str = Field(..., description="State (Maharashtra / Rajasthan / Uttar Pradesh)")
+    state: str = Field(..., description="Indian state or UT")
     district: str = Field(..., min_length=1, description="District name")
     has_disability_cert: bool = Field(default=False)
     disability_percentage: int | None = Field(
@@ -53,11 +53,11 @@ class UserProfile(BaseModel):
     @field_validator("state", mode="before")
     @classmethod
     def normalise_state(cls, v: str) -> str:
-        """Case-insensitive normalisation; reject unsupported states."""
+        """Case-insensitive normalisation; accept all Indian states/UTs."""
         normalised = STATE_ALIASES.get(v.strip().lower())
         if normalised is None:
             raise ValueError(
-                f"state '{v}' is not supported. Supported: Maharashtra, Rajasthan, Uttar Pradesh"
+                f"state '{v}' is not recognised. Please provide a valid Indian state or UT name."
             )
         return normalised
 
@@ -187,8 +187,9 @@ class StrategyStep(BaseModel):
 class InterviewRequest(BaseModel):
     """Request body for POST /interview."""
 
-    user_input: str = Field(..., min_length=1, description="User's Hinglish input")
+    user_input: str = Field(..., min_length=1, description="User's input text")
     session_id: str = Field(..., min_length=1, description="Unique session identifier")
+    lang: str = Field(default="hi", description="UI language: 'hi' or 'en'")
 
 
 class InterviewResponse(BaseModel):
@@ -233,6 +234,91 @@ class StoriesRequest(BaseModel):
     state: str = Field(default="Maharashtra")
     scheme_ids: list[str] = Field(default_factory=list)
     district: str = Field(default="")
+
+
+# ---------------------------------------------------------------------------
+# Family Mode models
+# ---------------------------------------------------------------------------
+
+class FamilyMember(BaseModel):
+    """A family member for household-level evaluation."""
+
+    model_config = {"str_strip_whitespace": True, "extra": "ignore"}
+
+    name: str = Field(..., min_length=1, description="Member's name")
+    age: int = Field(..., ge=0, le=120)
+    gender: str = Field(default="female", description="male/female/other")
+    occupation: str = Field(default="none")
+    has_disability_cert: bool = Field(default=False)
+    disability_percentage: int | None = Field(default=None, ge=0, le=100)
+    income: int = Field(default=0, ge=0)
+    marital_status: MaritalStatus = Field(default=MaritalStatus.SINGLE)
+    life_event: LifeEvent = Field(default=LifeEvent.NONE)
+
+
+class FamilyEvaluateRequest(BaseModel):
+    """Request body for POST /evaluate with optional family members."""
+
+    age: int = Field(..., ge=18, le=120)
+    income: int = Field(..., ge=0, le=1_000_000)
+    marital_status: MaritalStatus
+    dependents: int = Field(..., ge=0, le=20)
+    state: str
+    district: str = Field(..., min_length=1)
+    has_disability_cert: bool = Field(default=False)
+    disability_percentage: int | None = Field(default=None, ge=0, le=100)
+    life_event: LifeEvent = Field(default=LifeEvent.NONE)
+    is_rural: bool = Field(default=True)
+    has_aadhaar: bool = Field(default=True)
+    family_members: list[FamilyMember] = Field(default_factory=list, max_length=6)
+
+    @field_validator("state", mode="before")
+    @classmethod
+    def normalise_state(cls, v: str) -> str:
+        normalised = STATE_ALIASES.get(v.strip().lower())
+        if normalised is None:
+            raise ValueError(f"state '{v}' is not recognised.")
+        return normalised
+
+
+# ---------------------------------------------------------------------------
+# Checklist models
+# ---------------------------------------------------------------------------
+
+class ChecklistRequest(BaseModel):
+    """Request body for POST /checklist."""
+
+    scheme_ids: list[str] = Field(..., min_length=1)
+
+
+class ChecklistItem(BaseModel):
+    """A single document in the checklist."""
+
+    document: str
+    document_hi: str = ""
+    needed_for: list[str]
+    timeline_week: int = Field(ge=1, le=4)
+    difficulty: str = Field(default="easy")
+
+
+class ChecklistResponse(BaseModel):
+    """Response for POST /checklist."""
+
+    status: str = "success"
+    checklist: list[ChecklistItem]
+    total_documents: int
+    summary: str
+
+
+# ---------------------------------------------------------------------------
+# Report models
+# ---------------------------------------------------------------------------
+
+class ReportRequest(BaseModel):
+    """Request body for POST /report."""
+
+    profile: dict[str, Any]
+    results: dict[str, Any]
 
 
 class ErrorResponse(BaseModel):

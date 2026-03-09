@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { MapPin, CheckCircle, Clock, AlertTriangle, Lightbulb, Users, Loader } from 'lucide-react'
 import Header from '../components/Header'
 import { postStories } from '../api/client'
+import { useLanguage } from '../context/LanguageContext'
 
-// Fallback stories used when API is unavailable
 const FALLBACK_STORIES = [
   {
     id: 1, name: 'Savitri D.', district: 'Pune', state: 'Maharashtra', age: '40-49',
@@ -46,6 +46,7 @@ const FALLBACK_STORIES = [
 
 export default function Stories() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [filter, setFilter] = useState('all')
   const [stories, setStories] = useState(FALLBACK_STORIES)
   const [loading, setLoading] = useState(false)
@@ -53,7 +54,6 @@ export default function Stories() {
   const profile = JSON.parse(sessionStorage.getItem('nyaaya_profile') || '{}')
   const results = JSON.parse(sessionStorage.getItem('nyaaya_results') || '{}')
 
-  // Try to fetch AI-generated stories on mount
   useEffect(() => {
     if (!profile.state) return
     const eligible = results.eligible_schemes?.filter(s => s.eligible) ?? []
@@ -64,19 +64,15 @@ export default function Stories() {
     postStories(profile.state, profile.district || '', schemeIds)
       .then(res => {
         if (res.stories && res.stories.length > 0) {
-          // Add IDs to AI stories
           const withIds = res.stories.map((s, i) => ({ ...s, id: `ai_${i}` }))
           setStories(withIds)
           setAiGenerated(true)
         }
       })
-      .catch(() => {
-        // Keep fallback stories
-      })
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
-  // Sort: same state first, then by approval rate
   const sorted = [...stories].sort((a, b) => {
     const aMatch = a.state === profile.state ? 1 : 0
     const bMatch = b.state === profile.state ? 1 : 0
@@ -91,53 +87,52 @@ export default function Stories() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      <main className="flex-1 px-4 py-6 max-w-lg mx-auto w-full">
-        {/* Header */}
+      <main id="main-content" className="flex-1 px-4 py-6 max-w-lg mx-auto w-full" role="main" aria-label={t('a11y_main')}>
         <div className="animate-fade-slide-up mb-4">
           <div className="flex items-center gap-2 mb-1">
             <Users size={20} className="text-teal-400" />
-            <h2 className="text-xl font-bold text-white">Peer Success Stories</h2>
+            <h2 className="text-xl font-bold text-white">{t('stories_title')}</h2>
           </div>
           <p className="text-sm text-slate-400">
-            {aiGenerated
-              ? <>AI-generated stories personalised for your profile.</>
-              : <>Real experiences from people like you.</>
-            }
-            {profile.state && <span className="text-teal-400"> Showing {profile.state} first.</span>}
+            {aiGenerated ? t('stories_ai') : t('stories_real')}
+            {profile.state && <span className="text-teal-400"> {t('stories_your_state')}: {profile.state}</span>}
           </p>
           {aiGenerated && (
             <span className="inline-block mt-1 text-[10px] bg-teal-600/20 text-teal-400 px-2 py-0.5 rounded-full">
-              Powered by Amazon Bedrock
+              {t('powered_by')} Amazon Bedrock
             </span>
           )}
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-2 mb-5 overflow-x-auto animate-fade-slide-up">
-          {['all', 'approved', 'rejected'].map(f => (
+        <div className="flex gap-2 mb-5 overflow-x-auto animate-fade-slide-up" role="tablist">
+          {[
+            { key: 'all', label: t('stories_all') },
+            { key: 'approved', label: t('stories_approved') },
+            { key: 'rejected', label: t('stories_rejected') },
+          ].map(f => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap transition-colors ${
-                filter === f
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              role="tab"
+              aria-selected={filter === f.key}
+              className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap transition-colors min-h-[44px] focus:outline-2 focus:outline-teal-400 ${
+                filter === f.key
                   ? 'bg-teal-600 text-white'
                   : 'bg-dark-700 text-slate-400 hover:bg-dark-600'
               }`}
             >
-              {f === 'all' ? 'All Stories' : f === 'approved' ? 'Approved' : 'Rejected'}
+              {f.label}
             </button>
           ))}
         </div>
 
-        {/* Loading */}
         {loading && (
           <div className="flex items-center justify-center gap-2 py-8 text-slate-400">
             <Loader size={18} className="animate-spin" />
-            <span className="text-sm">Generating personalised stories...</span>
+            <span className="text-sm">{t('stories_loading')}</span>
           </div>
         )}
 
-        {/* Story cards */}
         <div className="space-y-4">
           {filtered.map((story, i) => (
             <div
@@ -145,7 +140,6 @@ export default function Stories() {
               className="animate-fade-slide-up bg-dark-800 rounded-2xl border border-dark-700 p-4"
               style={{ animationDelay: `${i * 80}ms` }}
             >
-              {/* Header */}
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -157,7 +151,7 @@ export default function Stories() {
                     <span className="text-xs text-slate-400">{story.district}, {story.state}</span>
                     {story.state === profile.state && (
                       <span className="text-[9px] bg-teal-600/20 text-teal-400 px-1.5 py-0.5 rounded-full ml-1">
-                        Your state
+                        {t('stories_your_state')}
                       </span>
                     )}
                   </div>
@@ -167,29 +161,27 @@ export default function Stories() {
                     ? 'bg-teal-500/20 text-teal-300'
                     : 'bg-red-500/20 text-red-300'
                 }`}>
-                  {story.status}
+                  {story.status === 'approved' ? t('stories_approved') : t('stories_rejected')}
                 </span>
               </div>
 
-              {/* Scheme + stats */}
               <div className="text-xs text-slate-300 mb-2">{story.scheme}</div>
               <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
                 <span className="flex items-center gap-1">
-                  <Clock size={11} /> {story.weeks} weeks
+                  <Clock size={11} /> {story.weeks} {t('scheme_weeks')}
                 </span>
                 {story.approval_rate && (
                   <span className="flex items-center gap-1">
-                    <CheckCircle size={11} /> {story.approval_rate}% approval
+                    <CheckCircle size={11} /> {story.approval_rate}% {t('scheme_approval')}
                   </span>
                 )}
               </div>
 
-              {/* Blockers */}
               {story.blockers?.length > 0 && (
                 <div className="mb-3">
                   <div className="flex items-center gap-1 mb-1">
                     <AlertTriangle size={12} className="text-amber-400" />
-                    <span className="text-[10px] font-medium text-amber-400">Blockers faced</span>
+                    <span className="text-[10px] font-medium text-amber-400">{t('stories_blockers')}</span>
                   </div>
                   {story.blockers.map((b, j) => (
                     <p key={j} className="text-xs text-slate-400 pl-4">- {b}</p>
@@ -197,15 +189,14 @@ export default function Stories() {
                 </div>
               )}
 
-              {/* Tips */}
               {story.tips?.length > 0 && (
                 <div>
                   <div className="flex items-center gap-1 mb-1">
                     <Lightbulb size={12} className="text-teal-400" />
-                    <span className="text-[10px] font-medium text-teal-400">Tips</span>
+                    <span className="text-[10px] font-medium text-teal-400">{t('stories_tips')}</span>
                   </div>
-                  {story.tips.map((t, j) => (
-                    <p key={j} className="text-xs text-slate-300 pl-4 mb-0.5">- {t}</p>
+                  {story.tips.map((tip, j) => (
+                    <p key={j} className="text-xs text-slate-300 pl-4 mb-0.5">- {tip}</p>
                   ))}
                 </div>
               )}
@@ -213,13 +204,12 @@ export default function Stories() {
           ))}
         </div>
 
-        {/* Bottom action */}
         <div className="mt-6 space-y-3">
           <button
             onClick={() => navigate('/results')}
-            className="w-full text-sm text-slate-500 hover:text-slate-300 py-2 transition-colors"
+            className="w-full text-sm text-slate-500 hover:text-slate-300 py-2 transition-colors min-h-[44px] focus:outline-2 focus:outline-teal-400"
           >
-            Back to Results
+            {t('stories_back')}
           </button>
         </div>
       </main>

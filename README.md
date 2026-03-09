@@ -1,6 +1,6 @@
 # Nyaaya.ai — Welfare Benefits, Simplified
 
-**AI-powered Indian government welfare eligibility engine** that helps citizens discover, qualify for, and apply to welfare schemes through a natural Hinglish conversation.
+**AI-powered Indian government welfare eligibility engine** that helps citizens discover, qualify for, and apply to welfare schemes through a natural conversation in Hindi, English, or Hinglish.
 
 > Built for the **AWS AI For Bharat Hackathon** — Prototype Phase
 
@@ -14,12 +14,14 @@
 
 Nyaaya.ai is an end-to-end welfare eligibility platform that:
 
-1. **Interviews** users in natural Hinglish (Hindi + English) via an empathetic AI assistant
+1. **Interviews** users in natural Hindi, English, or Hinglish via an empathetic AI assistant
 2. **Extracts** structured eligibility data from conversational input
 3. **Evaluates** against 6 welfare schemes using a deterministic rule engine
 4. **Computes a Nyaaya Score** (0-100) — a novel "welfare accessibility index"
-5. **Generates an optimised application strategy** with week-by-week timelines
-6. **Creates personalised peer stories** so users learn from real-world experiences
+5. **Lets users compare & select schemes** with side-by-side comparison
+6. **Generates an optimised application strategy** based on selected schemes with week-by-week timelines
+7. **Creates personalised peer stories** so users learn from real-world experiences
+8. **Generates downloadable PDF reports** with full eligibility details
 
 ---
 
@@ -43,7 +45,7 @@ Nyaaya.ai is an end-to-end welfare eligibility platform that:
 
 | Service | Purpose |
 |---------|---------|
-| **Amazon Bedrock** (Claude Sonnet 4.5) | Hinglish interview, data extraction, story generation |
+| **Amazon Bedrock** (Claude Sonnet 4.5) | Bilingual interview, data extraction, story generation |
 | **DynamoDB** | Session persistence with TTL auto-expiry |
 | **Lambda** (via Mangum) | Serverless API hosting |
 | **API Gateway** | REST endpoint routing |
@@ -53,16 +55,40 @@ Nyaaya.ai is an end-to-end welfare eligibility platform that:
 
 ---
 
+## Key Features
+
+### Bilingual Interview (Hindi + English)
+- WhatsApp-style chat UI with voice input (Web Speech API)
+- Language-aware STT (Hindi/English toggle)
+- Text-to-Speech with smart Google voice selection
+- AI responds in the user's selected language
+
+### Scheme Comparison & Selection
+- **"Why this scheme?"** — expandable explanation on every scheme card
+- **Select schemes** — checkbox on each eligible scheme
+- **Compare side-by-side** — compare 2+ selected schemes across benefits, processing time, approval rate, confidence, and documents
+- **Selection-based strategy** — application timeline filters to only your chosen schemes
+
+### PDF Eligibility Report
+- Downloadable PDF with profile, Nyaaya Score, eligible/ineligible schemes, strategy, and document checklist
+- Falls back to JSON if PDF generation fails
+
+### Fully Bilingual UI (i18n)
+- Toggle between Hindi and English — all labels, buttons, and content switch instantly
+- WCAG AA accessibility: skip-to-content, ARIA landmarks, 44px touch targets, focus outlines, `prefers-reduced-motion`
+
+---
+
 ## Welfare Schemes Covered (6)
 
 | Scheme | Benefit | Target |
 |--------|---------|--------|
-| Widow Pension (Maharashtra) | ₹600/month | Widows, income <₹15K |
-| Disability Allowance | ₹500/month | ≥40% disability, income <₹10K |
-| NREGA Employment Guarantee | ₹20,000/year | Rural, 18-65, income <₹20K |
-| PM-KISAN Samman Nidhi | ₹500/month | Farmers, rural, income <₹2L |
-| Indira Gandhi Old Age Pension | ₹500/month | Age ≥60, BPL |
-| PM Ujjwala Yojana (Free LPG) | ₹1,600 one-time | Women, BPL |
+| Widow Pension (Maharashtra) | Rs.600/month | Widows, income <Rs.15K |
+| Disability Allowance | Rs.500/month | ≥40% disability, income <Rs.10K |
+| NREGA Employment Guarantee | Rs.20,000/year | Rural, 18-65, income <Rs.20K |
+| PM-KISAN Samman Nidhi | Rs.500/month | Farmers, rural, income <Rs.2L |
+| Indira Gandhi Old Age Pension | Rs.500/month | Age ≥60, BPL |
+| PM Ujjwala Yojana (Free LPG) | Rs.1,600 one-time | Women, BPL |
 
 ---
 
@@ -71,7 +97,7 @@ Nyaaya.ai is an end-to-end welfare eligibility platform that:
 ### Nyaaya Score (0-100)
 A composite "welfare accessibility index" that quantifies how well-served a citizen is:
 - **Coverage** (40%): % of schemes qualified for
-- **Benefit** (30%): annual benefit vs ₹72K baseline income
+- **Benefit** (30%): annual benefit vs Rs.72K baseline income
 - **Speed** (15%): inverse of average processing time
 - **Confidence** (15%): average match confidence
 
@@ -80,8 +106,8 @@ Grades: A (80+), B (60+), C (40+), D (20+), F (<20)
 ### Bedrock-Powered Peer Stories
 Instead of static FAQs, Nyaaya generates **personalised peer success stories** based on the user's state, district, and eligible schemes — complete with real-world blockers and practical tips.
 
-### Hinglish-Native Interview
-The AI naturally handles code-mixing (Hindi + English) and extracts structured data without forms. Voice input supported via Web Speech API.
+### Bilingual-Native Interview
+The AI naturally handles code-mixing (Hindi + English) and extracts structured data without forms. Voice input supported via Web Speech API with language-aware recognition.
 
 ### 3-Layer Validation Pipeline
 1. **Pydantic** — type, range, cross-field validation
@@ -241,10 +267,12 @@ Add error response: 404 → `/index.html` (SPA routing).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/interview` | Multi-turn Hinglish interview (Bedrock) |
+| `POST` | `/interview` | Multi-turn bilingual interview (Bedrock) |
 | `POST` | `/evaluate` | Evaluate eligibility + strategy + Nyaaya Score |
 | `POST` | `/translate` | Translate text (Amazon Translate) |
 | `POST` | `/stories` | Generate personalised peer stories (Bedrock) |
+| `POST` | `/report` | Generate PDF eligibility report |
+| `POST` | `/checklist` | Get document checklist for selected schemes |
 | `GET` | `/health` | Health check |
 | `GET` | `/docs` | Swagger UI |
 
@@ -253,10 +281,12 @@ Add error response: 404 → `/index.html` (SPA routing).
 ## Project Structure
 
 ```
-├── main.py               # FastAPI app + Lambda handler (6 endpoints)
-├── bedrock_client.py     # Amazon Bedrock interview + story generation
+├── main.py               # FastAPI app + Lambda handler (8 endpoints)
+├── bedrock_client.py     # Amazon Bedrock interview + story generation (bilingual)
 ├── rule_engine.py        # Deterministic eligibility rules (6 schemes)
 ├── optimizer.py          # Strategy optimizer + Nyaaya Score computation
+├── scheme_registry.py    # Scheme metadata registry
+├── report_generator.py   # PDF report generation (fpdf)
 ├── models.py             # Pydantic v2 schemas
 ├── config.py             # AWS config + constants + enums
 ├── dynamodb_utils.py     # DynamoDB session persistence (mock + real)
@@ -268,9 +298,12 @@ Add error response: 404 → `/index.html` (SPA routing).
 │   └── test_api_endpoints.py
 └── frontend/
     ├── src/
-    │   ├── pages/        # Welcome, Interview, Results, Strategy, Stories
-    │   ├── components/   # NyaayaScore, ChatBubble, VoiceButton, LanguageToggle
-    │   └── api/client.js # API client
+    │   ├── pages/          # Welcome, Interview, Results, Strategy, Stories
+    │   ├── components/     # SchemeCard, SchemeDetail, SchemeCompare, NyaayaScore,
+    │   │                   # ChatBubble, VoiceButton, Header, ProgressBar, TypingIndicator
+    │   ├── context/        # LanguageContext (i18n), TTSContext (text-to-speech)
+    │   ├── locales/        # en.json, hi.json (full bilingual strings)
+    │   └── api/client.js   # API client
     ├── index.html
     └── package.json
 ```
@@ -281,6 +314,7 @@ Add error response: 404 → `/index.html` (SPA routing).
 
 ```bash
 pytest tests/ -v
+# 74 tests covering rule engine, API endpoints, and Bedrock integration
 ```
 
 ---

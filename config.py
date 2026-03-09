@@ -43,17 +43,38 @@ MAX_TOKENS_BEDROCK: int = 500
 INCOME_WARNING_THRESHOLD: int = 1_000_000
 
 # ---------------------------------------------------------------------------
-# Supported states (lowercase for comparison)
+# All Indian States & UTs (28 states + 8 UTs)
 # ---------------------------------------------------------------------------
-SUPPORTED_STATES: set[str] = {"maharashtra", "rajasthan", "uttar pradesh"}
+ALL_STATES: list[str] = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
+    "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+    "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+    "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal",
+    "Andaman and Nicobar Islands", "Chandigarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
+]
+
+SUPPORTED_STATES: set[str] = {s.lower() for s in ALL_STATES}
 
 # State name normalisation map (handle variations)
-STATE_ALIASES: dict[str, str] = {
-    "maharashtra": "Maharashtra",
-    "rajasthan": "Rajasthan",
+STATE_ALIASES: dict[str, str] = {s.lower(): s for s in ALL_STATES}
+STATE_ALIASES.update({
     "up": "Uttar Pradesh",
-    "uttar pradesh": "Uttar Pradesh",
-}
+    "mp": "Madhya Pradesh",
+    "hp": "Himachal Pradesh",
+    "jk": "Jammu and Kashmir",
+    "j&k": "Jammu and Kashmir",
+    "ap": "Andhra Pradesh",
+    "tn": "Tamil Nadu",
+    "wb": "West Bengal",
+    "uk": "Uttarakhand",
+    "cg": "Chhattisgarh",
+    "j & k": "Jammu and Kashmir",
+    "a&n": "Andaman and Nicobar Islands",
+})
 
 # ---------------------------------------------------------------------------
 # Scheme IDs (canonical identifiers)

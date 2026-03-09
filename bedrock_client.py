@@ -28,41 +28,66 @@ from config import (
 # System prompt sent on every request
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are an empathetic Indian Government Welfare Assistant named Nyaaya.
-Your ONLY job: gather eligibility facts through natural Hinglish conversation.
+_SYSTEM_PROMPT_TEMPLATE = """You are an empathetic Indian Government Welfare Assistant named Nyaaya.
+Your ONLY job: gather eligibility facts through natural conversation.
+
+LANGUAGE RULE: {lang_instruction}
 
 STRICT RULES:
 1. Be conversational — NOT a form. Ask exactly ONE question per turn.
-2. Handle Hinglish naturally (code-mixing of Hindi + English is expected).
-3. Extract ONLY these facts: age, income, marital_status, dependents, state,
+2. Extract ONLY these facts: age, income, marital_status, dependents, state,
    district, has_disability_cert, disability_percentage, life_event, is_rural, has_aadhaar.
-4. NEVER determine eligibility yourself. Only extract facts.
-5. After 6–8 turns (or when all key fields are collected), set interview_complete=true. Be efficient — ask about multiple related fields if natural (e.g. "Aapki age aur income kitni hai?").
-6. If the user is confused, explain gently in simple Hindi + English.
+3. NEVER determine eligibility yourself. Only extract facts.
+4. After 6-8 turns (or when all key fields are collected), set interview_complete=true. Be efficient — ask about multiple related fields if natural.
+5. If the user is confused, explain gently.
+6. ALWAYS respond in the language specified by the LANGUAGE RULE above. Match the user's language.
 
 VALID VALUES:
 - marital_status: single | married | widow | divorced | separated
 - life_event: widow | disabled | unemployed | elderly | farmer | student | none
-- state: Maharashtra | Rajasthan | Uttar Pradesh (only these three)
+- state: Any Indian state or UT (all 28 states + 8 UTs supported)
 - is_rural: true (village/gavaan) | false (shahar/city)
 
 OUTPUT FORMAT — return ONLY valid JSON (no markdown, no explanation):
-{
-  "next_question": "<your next conversational question in Hinglish>",
-  "extracted_data": {
+{{
+  "next_question": "<your next conversational question>",
+  "extracted_data": {{
     "<field>": <value>
-  },
-  "confidence": <0.0–1.0>,
+  }},
+  "confidence": <0.0-1.0>,
   "interview_complete": false
+}}
+
+{examples}
+"""
+
+_LANG_INSTRUCTIONS = {
+    "hi": "Respond in Hinglish (natural Hindi-English mix). Example: 'Aapki umar kya hai?' Code-mixing is expected and preferred.",
+    "en": "Respond in simple, clear English. The user prefers English. Example: 'What is your age and monthly income?'",
 }
 
-EXAMPLES:
+_EXAMPLES = {
+    "hi": """EXAMPLES:
 User: "Mera husband 5 saal pehle pass ho gaya"
-Response: {"next_question": "Bahut dukh ki baat hai. Aapki umar kya hai?", "extracted_data": {"marital_status": "widow", "life_event": "widow"}, "confidence": 0.6, "interview_complete": false}
+Response: {{"next_question": "Bahut dukh ki baat hai. Aapki umar kya hai?", "extracted_data": {{"marital_status": "widow", "life_event": "widow"}}, "confidence": 0.6, "interview_complete": false}}
 
 User: "Meri age 52 hai"
-Response: {"next_question": "Aapke paas kitne bacche ya dependent hain?", "extracted_data": {"age": 52}, "confidence": 0.95, "interview_complete": false}
-"""
+Response: {{"next_question": "Aapke paas kitne bacche ya dependent hain?", "extracted_data": {{"age": 52}}, "confidence": 0.95, "interview_complete": false}}""",
+    "en": """EXAMPLES:
+User: "My husband passed away 5 years ago"
+Response: {{"next_question": "I'm sorry to hear that. How old are you?", "extracted_data": {{"marital_status": "widow", "life_event": "widow"}}, "confidence": 0.6, "interview_complete": false}}
+
+User: "I am 52 years old"
+Response: {{"next_question": "How many children or dependents do you have?", "extracted_data": {{"age": 52}}, "confidence": 0.95, "interview_complete": false}}""",
+}
+
+
+def _get_system_prompt(lang: str = "hi") -> str:
+    lang_key = lang if lang in _LANG_INSTRUCTIONS else "hi"
+    return _SYSTEM_PROMPT_TEMPLATE.format(
+        lang_instruction=_LANG_INSTRUCTIONS[lang_key],
+        examples=_EXAMPLES[lang_key],
+    )
 
 # ---------------------------------------------------------------------------
 # Bedrock client (lazy singleton — created on first use, reset on error)
@@ -122,6 +147,7 @@ def conduct_interview(
     user_input: str,
     conversation_history: list[dict[str, Any]],
     accumulated_data: dict[str, Any] | None = None,
+    lang: str = "hi",
 ) -> dict[str, Any]:
     """
     Call Bedrock via the unified Converse API with conversation context.
@@ -163,7 +189,7 @@ def conduct_interview(
         # Converse API — unified across all Bedrock models
         response = client.converse(
             modelId=BEDROCK_MODEL_ID,
-            system=[{"text": SYSTEM_PROMPT}],
+            system=[{"text": _get_system_prompt(lang)}],
             messages=[
                 {"role": "user", "content": [{"text": prompt}]}
             ],
@@ -178,7 +204,8 @@ def conduct_interview(
         result = _extract_json(assistant_text)
 
         # Ensure required keys exist with safe defaults
-        result.setdefault("next_question", "Kya aap thoda aur detail de sakte hain?")
+        fallback_q = "Could you tell me a bit more?" if lang == "en" else "Kya aap thoda aur detail de sakte hain?"
+        result.setdefault("next_question", fallback_q)
         result.setdefault("extracted_data", {})
         result.setdefault("confidence", 0.5)
         result.setdefault("interview_complete", False)
@@ -194,7 +221,7 @@ def conduct_interview(
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
         logger.error("Bedrock ClientError [%s]: %s", error_code, str(e))
-        return _fallback_response(f"Bedrock error: {error_code}")
+        return _fallback_response(f"Bedrock error: {error_code}", lang)
 
     except BotoCoreError as e:
         global _bedrock_client
@@ -204,29 +231,31 @@ def conduct_interview(
             type(e).__name__,
             str(e),
         )
-        return _fallback_response(f"AWS configuration error: {type(e).__name__}")
+        return _fallback_response(f"AWS configuration error: {type(e).__name__}", lang)
 
     except (ValueError, KeyError, json.JSONDecodeError) as e:
         logger.error("Bedrock response parse error: %s", str(e))
-        return _fallback_response(str(e))
+        return _fallback_response(str(e), lang)
 
     except Exception as e:
         logger.exception("Unexpected error in conduct_interview: %s", str(e))
-        return _fallback_response(f"Unexpected error: {type(e).__name__}")
+        return _fallback_response(f"Unexpected error: {type(e).__name__}", lang)
 
 
 # ---------------------------------------------------------------------------
 # Fallback response (graceful degradation)
 # ---------------------------------------------------------------------------
 
-def _fallback_response(reason: str) -> dict[str, Any]:
+def _fallback_response(reason: str, lang: str = "hi") -> dict[str, Any]:
     """Return a safe, conversation-continuing response on any error."""
     logger.warning("Using fallback response. Reason: %s", reason)
+    fallback_q = (
+        "Sorry, there was a technical issue. Could you please repeat what you said?"
+        if lang == "en"
+        else "Maafi kijiye, kuch technical samasya aayi. Kya aap apni baat dobara keh sakte hain?"
+    )
     return {
-        "next_question": (
-            "Maafi kijiye, kuch technical samasya aayi. "
-            "Kya aap apni baat dobara keh sakte hain?"
-        ),
+        "next_question": fallback_q,
         "extracted_data": {},
         "confidence": 0.0,
         "interview_complete": False,
