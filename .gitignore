@@ -9,9 +9,12 @@ build/
 .venv/
 venv/
 package/
+lambda_package/
 nyaaya-lambda.zip
+lambda_output.json
 .pytest_cache/
 .mypy_cache/
 node_modules/
 frontend/dist/
 frontend/node_modules/
+frontend/.vite/
